@@ -1,0 +1,1503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>XR Archipelago</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --ground:#0b0718;
+  --ink:#f4efff;
+  --muted:#bdb6d9;
+  --cyan:#3ee6f5;
+  --violet:#8b6cff;
+  --violet-deep:#34227f;
+  --ember:#ff8a5b;
+  --glass:rgba(20,13,40,.58);
+  --edge:rgba(230,220,255,.16);
+  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --body:"Instrument Sans","Helvetica Neue",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ground);color:var(--ink);font:15px/1.55 var(--body)}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.ui{position:fixed;inset:0;pointer-events:none;padding:calc(18px + env(safe-area-inset-top,0px)) 20px calc(18px + env(safe-area-inset-bottom,0px))}
+.ui > *{pointer-events:auto}
+.brand{position:absolute;left:24px;top:calc(22px + env(safe-area-inset-top,0px));font:800 19px/1 var(--display);letter-spacing:-.01em}
+.brand span{color:var(--cyan)}
+.brand small{display:block;margin-top:6px;font:500 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+.vr{position:relative;--lift:0px;
+  font:600 14px/1 var(--body);color:#fff;border:0;border-radius:12px;padding:13px 18px;cursor:pointer;
+  background:linear-gradient(100deg,var(--violet),var(--cyan));
+  transform:translateY(calc(var(--lift)*-1));transition:transform .16s,box-shadow .16s,filter .16s;
+  box-shadow:0 calc(5px + var(--lift)) 0 var(--violet-deep),0 calc(8px + var(--lift)*3) 22px rgba(0,0,0,.45)}
+.vr:hover:not(:disabled){--lift:3px;filter:brightness(1.1)}
+.vr:active:not(:disabled){--lift:-4px}
+.xr-btns{position:absolute;right:24px;top:calc(18px + env(safe-area-inset-top,0px));display:flex;gap:10px}
+.vr.ghost{background:rgba(20,13,40,.7);border:1px solid var(--edge);box-shadow:0 calc(5px + var(--lift)) 0 #1b1535,0 8px 22px rgba(0,0,0,.45)}
+.vr:disabled{cursor:default;background:rgba(255,255,255,.08);color:var(--muted);box-shadow:0 5px 0 #1b1535;border:1px solid var(--edge);font-weight:500}
+.vr-note{position:absolute;right:24px;top:calc(70px + env(safe-area-inset-top,0px));max-width:250px;text-align:right;font:500 11px/1.45 var(--mono);color:var(--muted)}
+
+.card{position:absolute;left:24px;bottom:calc(64px + env(safe-area-inset-bottom,0px));width:min(400px,calc(100% - 48px));
+  padding:22px 24px 20px;border-radius:20px;background:var(--glass);border:1px solid var(--edge);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 30px 60px -30px rgba(0,0,0,.8);
+  transition:opacity .22s,transform .22s}
+.card.swap{opacity:0;transform:translateY(8px)}
+.fold{position:absolute;right:12px;top:12px;width:34px;height:34px;border-radius:10px;border:1px solid var(--edge);background:rgba(255,255,255,.06);color:var(--ink);cursor:pointer;display:grid;place-items:center;padding:0}
+.fold:hover{background:rgba(255,255,255,.12)}
+.fold svg{transition:transform .2s}
+.card.collapsed .fold svg{transform:rotate(180deg)}
+.card.collapsed #cardBody{display:none}
+.card.collapsed{padding-block:14px}
+.card.collapsed h1{font-size:20px;margin:8px 44px 0 0}
+#title{margin-right:40px}
+.meta{display:flex;gap:12px;font:500 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--cyan)}
+.meta #idx{color:var(--muted)}
+.card h1{font:800 clamp(26px,3.2vw,36px)/1.02 var(--display);letter-spacing:-.03em;margin:12px 0 10px;text-wrap:balance}
+.card p{margin:0 0 14px;color:var(--muted);max-width:52ch}
+.mail{display:inline-block;margin-top:6px;font:700 17px/1.3 var(--display);color:var(--ink);user-select:all}
+.tags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+.tag{font:500 11.5px/1 var(--mono);color:#c9f1ff;background:#1d2448;border:1px solid rgba(160,220,255,.2);padding:7px 11px;border-radius:99px;box-shadow:0 3px 0 #0c0f24}
+.spec{font:500 11px/1 var(--mono);letter-spacing:.06em;color:var(--ember)}
+
+.dots{position:absolute;right:24px;top:50%;transform:translateY(-50%);display:grid;gap:14px}
+.dot{position:relative;width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,.5);background:transparent;cursor:pointer;padding:0;transition:transform .2s,background .2s}
+.dot[aria-current="true"]{background:var(--cyan);border-color:var(--cyan);transform:scale(1.25);box-shadow:0 0 14px var(--cyan)}
+.dot span{position:absolute;right:22px;top:50%;transform:translateY(-50%);white-space:nowrap;font:500 11px/1 var(--mono);color:var(--ink);
+  background:var(--glass);border:1px solid var(--edge);padding:6px 8px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .15s}
+.dot:hover span,.dot:focus-visible span{opacity:1}
+.hint .short{display:none}
+.hint{position:absolute;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);white-space:nowrap;
+  font:500 11px/1 var(--mono);letter-spacing:.08em;color:var(--muted);pointer-events:none}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+#loader{position:fixed;inset:0;display:grid;place-items:center;background:var(--ground);font:500 12px/1 var(--mono);letter-spacing:.1em;color:var(--muted);transition:opacity .6s}
+#loader.gone{opacity:0;pointer-events:none}
+body.hover-obj #c{cursor:pointer}
+#portalHud{position:absolute;right:24px;bottom:calc(64px + env(safe-area-inset-bottom,0px));display:none;flex-direction:column;align-items:flex-end;gap:8px}
+body.portal-on #portalHud{display:flex}
+body.portal-on .dots,body.portal-on .hint{display:none}
+body.portal-mouse #portalCam{display:none}
+#portalCam{width:128px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--edge);transform:scaleX(-1);background:#000}
+#portalStatus{font:500 11px/1.3 var(--mono);color:var(--ink);background:var(--glass);border:1px solid var(--edge);padding:6px 9px;border-radius:8px}
+#arUI{position:fixed;inset:0;display:none;pointer-events:none;color:var(--ink);font:15px/1.4 var(--body)}
+#arUI.on{display:block;pointer-events:auto;touch-action:none}
+.ar-actions{display:flex;gap:8px}
+[hidden]{display:none!important}
+#arUI button{pointer-events:auto}
+.ar-top{position:absolute;left:16px;right:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.ar-title{background:var(--glass);border:1px solid var(--edge);border-radius:14px;padding:10px 14px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.ar-title small{display:block;font:500 10px/1 var(--mono);letter-spacing:.12em;color:var(--cyan);margin-bottom:6px}
+.ar-title b{font:800 18px/1.1 var(--display)}
+.ar-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,70px);width:max-content;max-width:calc(100% - 32px);text-align:center;font:500 12px/1.4 var(--mono);background:var(--glass);border:1px solid var(--edge);padding:9px 13px;border-radius:10px}
+.ar-nav{position:absolute;left:16px;right:16px;bottom:calc(22px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;gap:12px}
+
+@media (max-width:700px){
+  .card{left:16px;right:16px;width:auto;bottom:calc(46px + env(safe-area-inset-bottom,0px));padding:16px 18px}
+  .card p{font-size:14px}
+  .brand small{display:none}
+  #portalHud{right:16px;bottom:calc(120px + env(safe-area-inset-bottom,0px))}
+  #portalCam{width:96px;height:72px}
+  .hint.used{opacity:0;transition:opacity .4s}
+  .dots{right:14px;top:34%}
+  .xr-btns{right:16px;top:calc(14px + env(safe-area-inset-top,0px))}.vr{padding:10px 12px;font-size:13px}.vr:disabled{display:none}.vr-note{display:none}
+  .brand{font-size:16px;top:calc(24px + env(safe-area-inset-top,0px))}
+  .hint .long{display:none}.hint .short{display:inline}
+  .brand{left:16px}
+  .hint{font-size:10px}
+}
+</style>
+
+<canvas id="c" tabindex="0" aria-label="3D portfolio scene"></canvas>
+<div class="ui">
+  <div class="brand">Nathan Segers<span>.</span>xr<small>Spatial portfolio</small></div>
+  <div class="xr-btns"><button class="vr ghost" id="portalBtn">Portal</button><button class="vr ghost" id="ar" disabled>Checking AR…</button><button class="vr" id="vr" disabled>Checking VR…</button></div>
+  <div class="vr-note" id="vrNote"></div>
+  <nav class="dots" id="dots" aria-label="Scenes"></nav>
+  <article class="card" id="card" aria-live="polite">
+    <div class="meta"><span id="idx">01 / 05</span><span id="eyebrow"></span></div>
+    <button class="fold" id="fold" aria-expanded="true" aria-controls="cardBody" aria-label="Hide project text">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <h1 id="title"></h1>
+    <div id="cardBody">
+      <p id="text"></p>
+      <div class="tags" id="tags"></div>
+      <div class="spec" id="spec"></div>
+    </div>
+  </article>
+  <div id="portalHud"><video id="portalCam" playsinline muted></video><div id="portalStatus">Starting…</div><button class="vr ghost" id="portalExit">Exit portal</button></div>
+  <div class="hint" id="hint"><span class="long">Scroll or swipe to travel · click an object to look closer · kick the ball</span><span class="short">Swipe to travel · tap to look closer</span></div>
+</div>
+<div id="arUI">
+  <div class="ar-top"><div class="ar-title"><small id="arIdx">01 / 05</small><b id="arTitle"></b></div><div class="ar-actions"><button class="vr ghost" id="arHands" hidden>Camera hands: off</button><button class="vr ghost" id="arOcc" aria-pressed="true" hidden>Occlusion: on</button><button class="vr ghost" id="arExit">Exit AR</button></div></div>
+  <div class="ar-hint" id="arHint">Point at a table or the floor, then tap to place</div>
+  <div class="ar-nav"><button class="vr ghost" id="arPrev">‹ Prev</button><button class="vr" id="arNext">Next ›</button></div>
+</div>
+<div id="loader">Loading scene…</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+
+/* ------------------------------------------------------------------ content */
+const SCENES = [
+  { eyebrow:'Welcome', title:"Hi, I'm Nathan.", text:'I build mixed-reality experiences for Quest and the open web. Scroll to fly past my projects — or open this page in the Quest Browser and step inside.', tags:['Unity','three.js','WebXR'], spec:'5 scenes · WebXR ready', turf:0x6fae6a },
+  { eyebrow:'Project · 2026', title:'Spatial Museum Guide', text:'Mixed-reality tour with hand-tracked hotspots and spatial audio that follows the visitor through the gallery.', tags:['Unity','OpenXR','Quest 3'], spec:'90 Hz · passthrough · 48k tris', turf:0xc9b894 },
+  { eyebrow:'Project · 2025', title:'Hand-Tracked Lab Trainer', text:'Students practise lab procedures with their own hands — grab, pour and measure, no controllers needed.', tags:['Unity','XR Hands','Education'], spec:'72 Hz · 26 joints · 0 controllers', turf:0x4f9a8f },
+  { eyebrow:'Project · 2025', title:'WebXR Campus Tour', text:'A browser-based campus tour that opens straight into VR on a headset. No install, one link.', tags:['three.js','WebXR','GLB'], spec:'60–90 Hz · 3.2 MB total', turf:0x7cb65f },
+  { eyebrow:'Contact', title:"Let's build something spatial.", text:'Open for collaborations, workshops and talks on XR interaction design.', email:'nathan.segers@howest.be', tags:['Collaborations','Workshops','Talks'], spec:'Reply within 2 days', turf:0x9b7bd1 },
+];
+const N = SCENES.length;
+const ROCK = 0x5a3f55;
+const TOP = 1.1;                       // island surface height in metres (good table height in VR)
+const LAYOUT = [ [0,0,0,.25], [7,-1.2,.12,-.3], [14,.4,-.08,.22], [21,-.8,.1,-.25], [28,0,0,.15] ]; // x, z, y, rotY
+
+/* ------------------------------------------------------------------ renderer */
+const canvas = document.getElementById('c');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true }); }
+catch (e) { document.getElementById('loader').textContent = 'WebGL is not available in this browser.'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x0b0718, 1);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor');
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x3a1c46, 0.032);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 400);
+const dolly = new THREE.Group();          // VR rig; identity on desktop
+dolly.add(camera);
+scene.add(dolly);
+const world = new THREE.Group();   // everything that belongs to the archipelago (hidden in AR until placed)
+scene.add(world);
+const skyStuff = [];               // sky + stars, hidden in AR so the real room shows through
+
+/* ------------------------------------------------------------------ helpers */
+const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, flatShading:true, roughness:.85, ...o });
+const glow = (color, i = 1.2, o = {}) => new THREE.MeshStandardMaterial({ color, emissive:color, emissiveIntensity:i, roughness:.4, ...o });
+let seed = 7;
+let solidsTmp = [];
+const S = m => (solidsTmp.push(m), m);   // registers a mesh as a collider for the ball
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const hash = (x, y, z) => { const s = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453; return s - Math.floor(s); };
+function jitter(geo, amt, keepAbove) {
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const flat = y >= keepAbove;
+    p.setXYZ(i, x + (hash(x, y, z) - .5) * amt, flat ? y : y + (hash(z, x, y) - .5) * amt * .7, z + (hash(y, z, x) - .5) * amt);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+function mesh(geo, material, x = 0, y = 0, z = 0, parent) {
+  const m = new THREE.Mesh(geo, material);
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+  if (parent) parent.add(m);
+  return m;
+}
+const tickers = [];
+const hoverables = [];
+function hoverable(root, island) {
+  root.userData.island = island; root.userData.h = 0; root.userData.y0 = root.position.y;
+  root.userData.bob = 0; root.userData.spin = 0; root.userData.s0 = root.scale.clone();
+  root.userData.p0 = root.position.clone(); root.userData.r0 = root.rotation.clone();
+  hoverables.push(root);
+  return root;
+}
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+
+/* ------------------------------------------------------------------ sky, stars, fireflies */
+{
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(200, 32, 16), new THREE.ShaderMaterial({
+    side:THREE.BackSide, depthWrite:false, fog:false,
+    uniforms:{ indigo:{value:new THREE.Color(0x0d0b2e)}, plum:{value:new THREE.Color(0x4a1f52)}, ember:{value:new THREE.Color(0xe0704a)}, deep:{value:new THREE.Color(0x120a1c)} },
+    vertexShader:`varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
+    fragmentShader:`uniform vec3 indigo,plum,ember,deep; varying vec3 vP;
+      void main(){ float h = vP.y;
+        vec3 c = mix(ember, plum, smoothstep(-.04, .22, h));
+        c = mix(c, indigo, smoothstep(.22, .75, h));
+        c = mix(c, deep, smoothstep(-.04, -.5, h));
+        gl_FragColor = vec4(c, 1.);
+        #include <colorspace_fragment>
+      }`
+  }));
+  scene.add(sky); skyStuff.push(sky);
+  tickers.push(() => sky.position.copy(camera.getWorldPosition(new THREE.Vector3())));
+
+  const sp = [];
+  for (let i = 0; i < 700; i++) {
+    const u = rnd() * Math.PI * 2, v = .12 + rnd() * .88;
+    const r = 150, y = v * r, rr = Math.sqrt(r * r - y * y);
+    sp.push(Math.cos(u) * rr + 14, y, Math.sin(u) * rr);
+  }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+  const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color:0xfff4e6, size:1.6, sizeAttenuation:false, fog:false, transparent:true, opacity:.75 }));
+  scene.add(stars); skyStuff.push(stars);
+}
+const flyU = { t:{value:0}, pr:{value:renderer.getPixelRatio()} };
+{
+  const pos = [], sd = [];
+  for (let i = 0; i < 320; i++) { pos.push(-5 + rnd() * 38, .2 + rnd() * 4, -5 + rnd() * 8); sd.push(rnd()); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('seed', new THREE.Float32BufferAttribute(sd, 1));
+  world.add(new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms:flyU, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader:`uniform float t, pr; attribute float seed; varying float vA;
+      void main(){ vec3 p = position; p.y += sin(t*.6 + seed*6.28)*.3; p.x += cos(t*.4 + seed*12.)*.25; p.z += sin(t*.5 + seed*9.)*.2;
+        vec4 mv = modelViewMatrix * vec4(p,1.); gl_PointSize = 26. * pr / -mv.z; gl_Position = projectionMatrix * mv;
+        vA = .35 + .65 * (.5 + .5*sin(t*1.7 + seed*40.)); }`,
+    fragmentShader:`varying float vA; void main(){ float d = length(gl_PointCoord - .5); gl_FragColor = vec4(1., .72, .42, smoothstep(.5, 0., d) * vA); }`
+  })));
+}
+
+/* ------------------------------------------------------------------ lights */
+scene.add(new THREE.HemisphereLight(0x9aa6ff, 0x5a2f2a, 1.1));
+const key = new THREE.DirectionalLight(0xffd7b0, 2.4);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+Object.assign(key.shadow.camera, { left:-2.6, right:2.6, top:2.6, bottom:-2.6, near:.5, far:20 });
+key.shadow.bias = -.0008; key.shadow.normalBias = .02;
+scene.add(key, key.target);
+
+/* ------------------------------------------------------------------ island base */
+function islandBase(g, turfColor) {
+  mesh(jitter(new THREE.CylinderGeometry(1.35, .3, 1.4, 11, 4), .22, .69), mat(ROCK), 0, .3, 0, g);
+  mesh(jitter(new THREE.CylinderGeometry(1.45, 1.38, .16, 11, 1), .07, .07), mat(turfColor), 0, 1.02, 0, g);
+  for (let i = 0; i < 5; i++) {                          // floating debris under the island
+    const s = .1 + rnd() * .22, a = rnd() * 6.28, d = .35 + rnd() * .8;
+    const r = mesh(new THREE.DodecahedronGeometry(s, 0), mat(ROCK), Math.cos(a) * d, -.45 - rnd() * .9, Math.sin(a) * d, g);
+    r.rotation.set(rnd() * 3, rnd() * 3, 0);
+    const ph = rnd() * 6, y0 = r.position.y;
+    tickers.push(t => { r.position.y = y0 + Math.sin(t * .8 + ph) * .06; });
+  }
+  const lighter = new THREE.Color(turfColor).offsetHSL(0, .05, .1).getHex();
+  for (let i = 0; i < 12; i++) {                         // tufts + pebbles on the rim
+    const a = rnd() * 6.28, d = 1.0 + rnd() * .32;
+    if (i % 3) mesh(new THREE.ConeGeometry(.035, .16, 4), mat(lighter), Math.cos(a) * d, TOP + .07, Math.sin(a) * d, g);
+    else mesh(new THREE.DodecahedronGeometry(.05 + rnd() * .06, 0), mat(0x8a7486), Math.cos(a) * d, TOP + .03, Math.sin(a) * d, g);
+  }
+}
+function campfire(g, x, z) {
+  const f = new THREE.Group(); f.position.set(x, TOP, z); g.add(f);
+  for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28; mesh(new THREE.DodecahedronGeometry(.045, 0), mat(0x8d8594), Math.cos(a) * .15, .03, Math.sin(a) * .15, f); }
+  const l1 = mesh(new THREE.CylinderGeometry(.025, .025, .26, 6), mat(0x6b3f26), 0, .05, 0, f); l1.rotation.z = Math.PI / 2; l1.rotation.y = .6;
+  const l2 = l1.clone(); l2.rotation.y = -.6; f.add(l2);
+  const flames = [[0xff6a2b, .07, .26], [0xffa23a, .05, .2], [0xffe08a, .03, .13]].map(([c, r, h]) => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:.92 }));
+    m.position.y = .07 + h / 2; f.add(m); return m;
+  });
+  const light = new THREE.PointLight(0xff8a3c, 3, 3.2, 2); light.position.y = .3; f.add(light);
+  tickers.push(t => {
+    flames.forEach((m, i) => { m.scale.y = .85 + Math.sin(t * (9 + i * 3) + i) * .12 + Math.sin(t * 23 + i) * .05; m.rotation.y = t * (1 + i); });
+    light.intensity = 2.6 + Math.sin(t * 11) * .4 + Math.sin(t * 27) * .25;
+  });
+}
+
+/* ------------------------------------------------------------------ scene builders */
+const builders = [
+  // 0 — welcome: a floating headset above a campfire
+  (g, idx) => {
+    const hs = new THREE.Group(); hs.position.set(-.1, TOP + .85, -.1); g.add(hs);
+    mesh(new RoundedBoxGeometry(.8, .46, .42, 4, .12), mat(0xf1eff6, { flatShading:false, roughness:.5 }), 0, 0, 0, hs);
+    mesh(new RoundedBoxGeometry(.74, .38, .06, 3, .03), mat(0x14152b, { flatShading:false, roughness:.15, metalness:.5 }), 0, 0, .2, hs);
+    mesh(new RoundedBoxGeometry(.68, .34, .1, 3, .04), mat(0x2a2a3a), 0, 0, -.23, hs);
+    [[-.28, .12], [.28, .12], [-.28, -.12], [.28, -.12]].forEach(([x, y]) => mesh(new THREE.SphereGeometry(.022, 10, 8), glow(0x3ee6f5, 2.5), x, y, .235, hs));
+    const strap = mesh(new THREE.TorusGeometry(.38, .035, 8, 40, Math.PI), mat(0x2d2b44), 0, 0, -.18, hs);
+    strap.rotation.x = -Math.PI / 2;
+    hoverable(hs, idx);
+    tickers.push(t => { hs.userData.bob = Math.sin(t * 1.2) * .06; hs.rotation.y = Math.sin(t * .5) * .45 + hs.userData.spin; hs.rotation.x = Math.sin(t * .7) * .06; });
+    for (let i = 0; i < 6; i++) {
+      const c = mesh(new THREE.OctahedronGeometry(.07 + rnd() * .06, 0), glow(i % 2 ? 0x8b6cff : 0x3ee6f5, .9, { flatShading:true }), -.75 + rnd() * .35, TOP + .12, .15 - rnd() * .6, g);
+      c.scale.y = 2 + rnd(); c.rotation.set(rnd() * .4, rnd() * 3, rnd() * .4);
+    }
+    campfire(g, .55, .45);
+  },
+  // 1 — museum: pedestals with artworks and hotspot rings
+  (g, idx) => {
+    S(mesh(new THREE.BoxGeometry(1.7, .05, 1.5), mat(0xe9e1d3), 0, TOP + .025, -.05, g));
+    S(mesh(new THREE.BoxGeometry(1.7, 1.05, .07), mat(0xf3ede4), 0, TOP + .55, -.78, g));
+    mesh(new THREE.BoxGeometry(.64, .44, .03), mat(0x3b2a20), 0, TOP + .68, -.73, g);
+    const art = canvasTex(512, 320, (x, w, h) => {
+      const gr = x.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#20194d'); gr.addColorStop(1, '#0e5a73');
+      x.fillStyle = gr; x.fillRect(0, 0, w, h);
+      [['#ff8a5b', 150, 170, 90], ['#8b6cff', 300, 130, 70], ['#3ee6f5', 390, 220, 45], ['#f4efff', 230, 240, 22]].forEach(([c, cx, cy, r]) => { x.globalAlpha = .9; x.fillStyle = c; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); });
+    });
+    mesh(new THREE.PlaneGeometry(.58, .38), new THREE.MeshStandardMaterial({ map:art, roughness:.7 }), 0, TOP + .68, -.713, g);
+    const works = [
+      new THREE.Mesh(new THREE.TorusKnotGeometry(.09, .03, 80, 10), mat(0xe7b64a, { flatShading:false, metalness:.8, roughness:.3 })),
+      new THREE.Mesh(new THREE.IcosahedronGeometry(.13, 0), mat(0x8b6cff, { roughness:.25, emissive:0x2a1a66, emissiveIntensity:.6 })),
+      new THREE.Mesh(new THREE.DodecahedronGeometry(.12, 0), mat(0x3ee6f5, { roughness:.3, emissive:0x0b4f63, emissiveIntensity:.6 })),
+    ];
+    [-.52, 0, .52].forEach((x, i) => {
+      S(mesh(new RoundedBoxGeometry(.26, .46, .26, 2, .02), mat(0xfaf7f2, { flatShading:false }), x, TOP + .28, .1, g));
+      const w = works[i]; w.castShadow = true; w.position.set(x, TOP + .66, .1); g.add(w); hoverable(w, idx);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(.07, .009, 8, 40), new THREE.MeshBasicMaterial({ color:0x3ee6f5 }));
+      ring.position.set(x, TOP + .98, .1); g.add(ring);
+      const dotM = new THREE.Mesh(new THREE.CircleGeometry(.025, 20), new THREE.MeshBasicMaterial({ color:0x3ee6f5 })); ring.add(dotM);
+      const ph = i * 1.3, wp = new THREE.Vector3();
+      tickers.push(t => {
+        w.rotation.y = t * .6 + ph + w.userData.spin; w.rotation.x = Math.sin(t * .5 + ph) * .3;
+        w.userData.bob = Math.sin(t * 1.4 + ph) * .025;
+        ring.position.y = TOP + .98 + Math.sin(t * 2 + ph) * .03;
+        ring.lookAt(camera.getWorldPosition(wp));
+        ring.scale.setScalar(1 + Math.sin(t * 3 + ph) * .08);
+      });
+    });
+    const pl = new THREE.PointLight(0xfff0d8, 2.4, 3, 2); pl.position.set(0, TOP + 1.1, .3); g.add(pl);
+  },
+  // 2 — lab: table, glassware, rising bubbles
+  (g, idx) => {
+    const wood = mat(0x9a6a45);
+    S(mesh(new THREE.BoxGeometry(1.34, .05, .64), wood, 0, TOP + .5, 0, g));
+    [[-.6, -.27], [.6, -.27], [-.6, .27], [.6, .27]].forEach(([x, z]) => S(mesh(new THREE.BoxGeometry(.05, .5, .05), wood, x, TOP + .25, z, g)));
+    const T = TOP + .525;
+    const glass = new THREE.MeshStandardMaterial({ color:0xdff2ff, transparent:true, opacity:.28, roughness:.05, metalness:.1, side:THREE.DoubleSide, depthWrite:false });
+    function beaker(x, z, r, h, c) {
+      const b = new THREE.Group(); b.position.set(x, T, z); g.add(b);
+      mesh(new THREE.CylinderGeometry(r, r, h, 18, 1, true), glass, 0, h / 2, 0, b).castShadow = false;
+      mesh(new THREE.CylinderGeometry(r * .9, r * .9, h * .55, 18), glow(c, .9, { transparent:true, opacity:.85, flatShading:false }), 0, h * .28, 0, b);
+      return hoverable(b, idx);
+    }
+    beaker(-.42, .05, .08, .2, 0xa98bff);
+    beaker(-.2, -.12, .06, .15, 0xffb14a);
+    const tubes = new THREE.Group(); tubes.position.set(.45, T, -.1); g.add(tubes);
+    mesh(new THREE.BoxGeometry(.34, .05, .08), wood, 0, .08, 0, tubes);
+    [0x5cf2a5, 0xff7aa8, 0x3ee6f5, 0xa98bff].forEach((c, i) => {
+      const x = -.12 + i * .08;
+      mesh(new THREE.CylinderGeometry(.018, .018, .22, 10, 1, true), glass, x, .11, 0, tubes).castShadow = false;
+      mesh(new THREE.CylinderGeometry(.015, .015, .08 + i * .02, 10), glow(c, 1.1), x, .04 + (.08 + i * .02) / 2, 0, tubes);
+    });
+    hoverable(tubes, idx);
+    // erlenmeyer flask via lathe
+    const fl = new THREE.Group(); fl.position.set(.08, T, .08); g.add(fl);
+    const prof = [[.001, 0], [.14, 0], [.15, .02], [.06, .21], [.036, .25], [.036, .34], [.046, .35]].map(([x, y]) => new THREE.Vector2(x, y));
+    fl.add(new THREE.Mesh(new THREE.LatheGeometry(prof, 24), glass));
+    const liq = [[0, .005], [.135, .005], [.142, .02], [.095, .12], [0, .12]].map(([x, y]) => new THREE.Vector2(x, y));
+    fl.add(new THREE.Mesh(new THREE.LatheGeometry(liq, 24), glow(0x5cf2a5, 1.1, { flatShading:false, transparent:true, opacity:.9 })));
+    hoverable(fl, idx);
+    const lab = new THREE.PointLight(0x5cf2a5, 2.2, 2.5, 2); lab.position.set(.08, T + .3, .1); g.add(lab);
+    const bubbles = [];
+    for (let i = 0; i < 14; i++) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(.012 + rnd() * .01, 8, 6), new THREE.MeshBasicMaterial({ color:0xb8ffe0, transparent:true, opacity:.8 }));
+      b.userData = { ph:rnd(), dx:(rnd() - .5) * .05 }; g.add(b); bubbles.push(b);
+    }
+    tickers.push(t => {
+      bubbles.forEach(b => { const k = (t * .35 + b.userData.ph) % 1; b.position.set(fl.position.x + b.userData.dx + Math.sin(k * 12) * .01, T + .3 + k * .55, fl.position.z); b.material.opacity = .8 * (1 - k); });
+      [fl, tubes].forEach(o => { o.rotation.y = o.userData.spin; });
+      lab.intensity = 2 + Math.sin(t * 3) * .4;
+    });
+  },
+  // 3 — campus: buildings with lit windows, trees, a portal
+  (g, idx) => {
+    mesh(new THREE.BoxGeometry(1.9, .02, .18), mat(0xd8c7a3), 0, TOP + .01, .15, g);
+    mesh(new THREE.BoxGeometry(.18, .02, 1.5), mat(0xd8c7a3), -.1, TOP + .012, 0, g);
+    function building(x, z, w, h, d, base) {
+      const floors = Math.max(2, Math.round(h * 8)), cols = Math.max(2, Math.round(w * 9));
+      const draw = lit => (c, W, H) => {
+        c.fillStyle = lit ? '#000' : base; c.fillRect(0, 0, W, H);
+        const cw = W / cols, ch = H / floors;
+        for (let r = 0; r < floors; r++) for (let q = 0; q < cols; q++) {
+          const on = hash(x * 9 + q, r, z * 7) > .45;
+          c.fillStyle = lit ? (on ? '#ffc27a' : '#000') : (on ? '#ffd9a0' : '#3a3550');
+          c.fillRect(q * cw + cw * .22, r * ch + ch * .25, cw * .56, ch * .5);
+        }
+      };
+      const side = new THREE.MeshStandardMaterial({ map:canvasTex(128, 256, draw(false)), emissiveMap:canvasTex(128, 256, draw(true)), emissive:0xffc27a, emissiveIntensity:1.1, roughness:.8 });
+      const roof = mat(new THREE.Color(base).offsetHSL(0, 0, -.12).getHex());
+      const b = S(mesh(new THREE.BoxGeometry(w, h, d), [side, side, roof, roof, side, side], x, TOP + h / 2, z, g));
+      mesh(new THREE.BoxGeometry(w * .35, .06, d * .35), roof, 0, h / 2 + .03, 0, b);
+      return hoverable(b, idx);
+    }
+    building(-.62, -.35, .42, .72, .38, '#e8d9c4');
+    building(.25, -.55, .5, .98, .36, '#c9d6e8');
+    building(.72, -.05, .3, .52, .34, '#d9c2c9');
+    [[-.95, .35], [-.55, .55], [.95, .5], [-.35, -.85], [.8, -.7]].forEach(([x, z], i) => {
+      const s = .8 + hash(x, z, 1) * .5;
+      mesh(new THREE.CylinderGeometry(.025, .03, .14 * s, 5), mat(0x6b4a2e), x, TOP + .07 * s, z, g);
+      mesh(new THREE.ConeGeometry(.13 * s, .3 * s, 6), mat(i % 2 ? 0x4f9a5a : 0x6fb86a), x, TOP + .14 * s + .15 * s, z, g);
+    });
+    const portal = new THREE.Group(); portal.position.set(.42, TOP + .38, .52); portal.rotation.y = -.4; g.add(portal);
+    mesh(new THREE.TorusGeometry(.26, .035, 10, 48), glow(0x3ee6f5, 1.6, { flatShading:false }), 0, 0, 0, portal);
+    const pU = { t:{ value:0 } };
+    portal.add(new THREE.Mesh(new THREE.CircleGeometry(.245, 48), new THREE.ShaderMaterial({
+      uniforms:pU, transparent:true, depthWrite:false, side:THREE.DoubleSide,
+      vertexShader:`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
+      fragmentShader:`uniform float t; varying vec2 vUv; void main(){ vec2 p = vUv - .5; float r = length(p)*2.; float a = atan(p.y,p.x);
+        float s = sin(a*5. + r*11. - t*3.)*.5 + .5; vec3 c = mix(vec3(.24,.9,.96), vec3(.55,.42,1.), s);
+        gl_FragColor = vec4(c, smoothstep(1., .55, r) * (.5 + .4*s)); }`
+    })));
+    mesh(new THREE.BoxGeometry(.12, .12, .12), mat(0x8a7486), 0, -.32, 0, portal);
+    hoverable(portal, idx);
+    const pl = new THREE.PointLight(0x3ee6f5, 2, 2.2, 2); pl.position.set(.42, TOP + .4, .7); g.add(pl);
+    tickers.push(t => { pU.t.value = t; portal.userData.bob = Math.sin(t * 1.3) * .03; portal.children[0].rotation.z = t * .5; portal.rotation.y = -.4 + portal.userData.spin; });
+  },
+  // 4 — contact: mailbox, floating envelope, lantern
+  (g, idx) => {
+    const box = new THREE.Group(); box.position.set(-.3, TOP, 0); g.add(box);
+    S(mesh(new THREE.BoxGeometry(.08, .62, .08), mat(0x7a5236), 0, .31, 0, box));
+    S(mesh(new RoundedBoxGeometry(.34, .26, .5, 3, .1), mat(0xe0523c, { flatShading:false, roughness:.55 }), 0, .74, 0, box));
+    mesh(new THREE.BoxGeometry(.02, .2, .02), mat(0x2d2b44), .18, .82, -.08, box);
+    const flag = mesh(new THREE.BoxGeometry(.012, .07, .11), mat(0xffc93c), .185, .9, -.03, box);
+    hoverable(box, idx);
+    const env = new THREE.Group(); env.position.set(.38, TOP + .95, .1); g.add(env);
+    mesh(new THREE.BoxGeometry(.4, .26, .02), mat(0xfaf6ee), 0, 0, 0, env);
+    const tri = new THREE.Shape(); tri.moveTo(-.2, .13); tri.lineTo(.2, .13); tri.lineTo(0, -.03); tri.closePath();
+    mesh(new THREE.ShapeGeometry(tri), mat(0xe6dccb, { side:THREE.DoubleSide }), 0, 0, .011, env);
+    mesh(new THREE.CircleGeometry(.03, 20), mat(0xe0523c), 0, -.02, .013, env);
+    hoverable(env, idx);
+    const lan = new THREE.Group(); lan.position.set(.72, TOP, -.55); g.add(lan);
+    mesh(new THREE.CylinderGeometry(.02, .025, .7, 6), mat(0x2d2b44), 0, .35, 0, lan);
+    mesh(new THREE.BoxGeometry(.13, .16, .13), glow(0xffc27a, 1.8), 0, .78, 0, lan);
+    mesh(new THREE.ConeGeometry(.11, .08, 4), mat(0x2d2b44), 0, .9, 0, lan).rotation.y = Math.PI / 4;
+    const ll = new THREE.PointLight(0xffb060, 2.6, 3, 2); ll.position.set(0, .8, 0); lan.add(ll);
+    campfire(g, -.2, .7);
+    tickers.push(t => {
+      env.userData.bob = Math.sin(t * 1.3) * .07; env.rotation.y = Math.sin(t * .6) * .5 + env.userData.spin; env.rotation.z = Math.sin(t * .9) * .08;
+      flag.rotation.z = Math.sin(t * 2) * .15; box.rotation.y = box.userData.spin;
+    });
+  },
+];
+
+const islands = SCENES.map((s, i) => {
+  const [x, z, y, ry] = LAYOUT[i];
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; world.add(g);
+  islandBase(g, s.turf);
+  solidsTmp = [];
+  builders[i](g, i);
+  g.updateMatrixWorld(true);
+  const inv = g.matrixWorld.clone().invert();
+  const solids = solidsTmp.map(m => { m.geometry.computeBoundingBox(); return m.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); });
+  const ph = i * 1.7;
+  tickers.push(t => { g.position.y = y + Math.sin(t * .5 + ph) * .03; });
+  return { g, x, y, z, solids };
+});
+/* ------------------------------------------------------------------ throwable ball */
+const BALL_R = .09;
+const BALL_SPAWN = [[-.3, .75], [.25, .45], [-.2, .78], [-.1, .82], [.4, .6]];   // island-local x, z clear of props
+const ball = (() => {
+  const geo = new THREE.IcosahedronGeometry(BALL_R, 2);
+  const pos = geo.attributes.position, cols = [], a = new THREE.Color(0xff8a5b), b = new THREE.Color(0xfff1dc), c = new THREE.Color(0x3ee6f5);
+  for (let i = 0; i < pos.count; i += 3) {             // beach-ball segments, one colour per triangle
+    const cx = pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2), cz = pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2), cy = pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2);
+    const seg = Math.floor((Math.atan2(cz, cx) / Math.PI + 1) * 3) % 3, col = Math.abs(cy / 3) > BALL_R * .82 ? b : [a, b, c][seg];
+    for (let k = 0; k < 3; k++) cols.push(col.r, col.g, col.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors:true, flatShading:true, roughness:.45 }));
+  m.castShadow = true; world.add(m);
+  return m;
+})();
+const ballS = { v:new THREE.Vector3(), island:0, held:null, hist:[], rest:0 };
+const ballLoc = new THREE.Vector3(), closest = new THREE.Vector3(), nW = new THREE.Vector3(), nL = new THREE.Vector3(), rollAxis = new THREE.Vector3();
+function spawnBall(i, drop) {
+  const is = islands[i], [sx, sz] = BALL_SPAWN[i];
+  is.g.updateWorldMatrix(true, false);
+  ball.position.set(sx, TOP + BALL_R + (drop ? .9 : 0), sz); is.g.localToWorld(ball.position);
+  ballS.v.set(0, 0, 0); ballS.island = i; ballS.rest = 0; ballS.held = null;
+}
+function kickBall() { ballS.v.set((Math.random() - .5) * 1.6, 3.4, (Math.random() - .5) * 1.6).multiplyScalar(dolly.scale.x); ballS.rest = 0; }
+function grabBall(src) { ballS.held = src; ballS.hist = []; }
+function throwBall() {
+  if (!ballS.held) return;
+  const h = ballS.hist, a = h[0], z = h[h.length - 1];
+  ballS.v.set(0, 0, 0);
+  if (a && z && z.t > a.t) ballS.v.subVectors(z.p, a.p).multiplyScalar(1150 / (z.t - a.t));   // ≈ hand speed ×1.15
+  ballS.held = null; ballS.island = vrIndex; ballS.rest = 0;
+}
+function stepBall(dt, now) {
+  if (ballS.held) {
+    ballS.held.getWorldPosition(ball.position);
+    ballS.hist.push({ p:ball.position.clone(), t:now }); if (ballS.hist.length > 7) ballS.hist.shift();
+    return;
+  }
+  const k = dolly.scale.x, G = 9.81 * k, is = islands[ballS.island], g = is.g;
+  g.updateWorldMatrix(true, false);
+  let grounded = false;
+  const bounce = (nx, ny, nz, e) => {
+    nW.set(nx, ny, nz).transformDirection(g.matrixWorld);
+    const vn = ballS.v.dot(nW);
+    if (vn < 0) ballS.v.addScaledVector(nW, -(1 + e) * vn);
+    if (nW.y > .7) grounded = true;
+  };
+  const steps = 4, h = dt / steps;
+  for (let s = 0; s < steps; s++) {
+    ballS.v.y -= G * h;
+    ball.position.addScaledVector(ballS.v, h);
+    ballLoc.copy(ball.position); g.worldToLocal(ballLoc);
+    if (Math.hypot(ballLoc.x, ballLoc.z) < 1.38 && ballLoc.y < TOP + BALL_R && ballLoc.y > TOP - .4) { ballLoc.y = TOP + BALL_R; bounce(0, 1, 0, .45); }
+    for (const b of is.solids) {
+      closest.copy(ballLoc).clamp(b.min, b.max);
+      const d = ballLoc.distanceTo(closest);
+      if (d >= BALL_R) continue;
+      if (d < 1e-6) { nL.set(0, 1, 0); closest.y = b.max.y; } else nL.subVectors(ballLoc, closest).divideScalar(d);
+      ballLoc.copy(closest).addScaledVector(nL, BALL_R); bounce(nL.x, nL.y, nL.z, .5);
+    }
+    ball.position.copy(ballLoc); g.localToWorld(ball.position);
+    if (xrMode === 'ar') {                               // the real table you tapped on
+      const ty = islands[vrIndex].y - 1.5;
+      if (ball.position.y < ty + BALL_R) { ball.position.y = ty + BALL_R; if (ballS.v.y < 0) ballS.v.y *= -.4; grounded = true; }
+    }
+  }
+  if (grounded) { const f = Math.exp(-dt * 2.4); ballS.v.x *= f; ballS.v.z *= f; if (Math.abs(ballS.v.y) < .3 * k) ballS.v.y = 0; }
+  const sp = Math.hypot(ballS.v.x, ballS.v.z);
+  if (sp > 1e-4) ball.rotateOnWorldAxis(rollAxis.set(ballS.v.z / sp, 0, -ballS.v.x / sp), sp * dt / BALL_R);
+  ballS.rest = grounded && ballS.v.length() / k < .06 ? ballS.rest + dt : 0;
+  const off = Math.hypot(ball.position.x - is.x, ball.position.z - is.z);
+  if (ball.position.y < is.y - 6 || off > 12 || (ballS.rest > 4 && off > 1.6)) spawnBall(ballS.island, true);
+}
+spawnBall(0, false);
+
+
+/* ------------------------------------------------------------------ desktop camera path */
+const views = islands.map(is => ({ pos:new THREE.Vector3(is.x, 2.35 + is.y, is.z + 4.7), tgt:new THREE.Vector3(is.x, 1.3 + is.y, is.z) }));
+const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), tmp = new THREE.Vector3();
+let p = 0, target = 0, zoom = 0, zoomT = 0, lastInput = 0, dragging = false;
+const mouse = { x:0, y:0, sx:0, sy:0, ndc:new THREE.Vector2(9, 9) };
+
+function placeCamera() {
+  const i = Math.min(Math.floor(p), N - 2), f = p - i, a = views[i], b = views[i + 1];
+  camPos.lerpVectors(a.pos, b.pos, f); camTgt.lerpVectors(a.tgt, b.tgt, f);
+  const arc = Math.sin(f * Math.PI);                    // crane up and back between islands
+  camPos.y += arc * .9; camPos.z += arc * 2.4;
+  const aspect = innerWidth / innerHeight;
+  if (aspect > 1.1) { camPos.x -= .75; camTgt.x -= .75; }    // make room for the card on the left
+  else { camTgt.y -= .55; camPos.z += 1.2; }                  // portrait: island sits above the card
+  camPos.lerp(camTgt, zoom * .42);
+  camPos.x += mouse.sx * .35; camPos.y -= mouse.sy * .2;
+  camera.position.copy(camPos); camera.lookAt(camTgt);
+}
+const clampT = v => Math.max(0, Math.min(N - 1, v));
+function goTo(i) { target = clampT(i); zoomT = 0; lastInput = 0; }
+
+addEventListener('wheel', e => {
+  if (inVR) return;
+  e.preventDefault();
+  const d = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY;
+  target = clampT(target + d * .0016); zoomT = 0; lastInput = performance.now();
+}, { passive:false });
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = { x:e.clientX, y:e.clientY, moved:0 }; dragging = true; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1;
+  mouse.ndc.set(mouse.x, -mouse.y);
+  if (down && dragging) {
+    const dx = e.movementX || 0, dy = e.movementY || 0;
+    down.moved += Math.abs(dx) + Math.abs(dy);
+    if (down.moved > 6) { target = clampT(target - (Math.abs(dx) > Math.abs(dy) ? dx : dy) * .004); zoomT = 0; lastInput = performance.now(); }
+  }
+});
+canvas.addEventListener('pointerup', e => {
+  const wasClick = down && down.moved <= 6; down = null; dragging = false;
+  if (!wasClick) return;
+  mouse.ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight * 2 - 1));
+  raycaster.setFromCamera(mouse.ndc, camera);
+  if (raycaster.intersectObject(ball, false).length) { kickBall(); return; }
+  const hit = pick(raycaster);
+  if (!hit) { zoomT = 0; return; }
+  if (hit.userData.island !== Math.round(p)) goTo(hit.userData.island);
+  else { zoomT = zoomT ? 0 : 1; hit.userData.spinV = 7; }
+});
+canvas.addEventListener('pointerleave', () => { mouse.ndc.set(9, 9); mouse.x = mouse.y = 0; });
+addEventListener('keydown', e => {
+  if (inVR) return;
+  if (portal.on && portal.mouse && '+=-_'.includes(e.key)) { portal.mouseZ = THREE.MathUtils.clamp(portal.mouseZ + ('+='.includes(e.key) ? -.08 : .08), .5, 1.5); return; }
+  const k = e.key;
+  if (['ArrowDown', 'ArrowRight', 'PageDown', ' '].includes(k)) { e.preventDefault(); goTo(Math.round(target) + 1); }
+  if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(k)) { e.preventDefault(); goTo(Math.round(target) - 1); }
+  if (k === 'Home') goTo(0); if (k === 'End') goTo(N - 1);
+  if (k === 'Escape') zoomT = 0;
+});
+
+/* ------------------------------------------------------------------ picking / hover */
+const raycaster = new THREE.Raycaster();
+function pick(rc) {
+  const hits = rc.intersectObjects(hoverables, true);
+  for (const h of hits) { let o = h.object; while (o && !hoverables.includes(o)) o = o.parent; if (o) return o; }
+  return null;
+}
+
+/* ------------------------------------------------------------------ UI */
+const $ = id => document.getElementById(id);
+const dotsEl = $('dots');
+SCENES.forEach((s, i) => {
+  const b = document.createElement('button'); b.className = 'dot'; b.setAttribute('aria-label', s.title);
+  b.innerHTML = `<span>${s.title}</span>`; b.onclick = () => goTo(i); dotsEl.appendChild(b);
+});
+let shown = -1, swapTimer;
+// Collapsible card: starts folded on phones, remembers the viewer's choice
+const cardEl = $('card'), foldBtn = $('fold');
+function setFolded(f, remember) {
+  cardEl.classList.toggle('collapsed', f);
+  foldBtn.setAttribute('aria-expanded', !f);
+  foldBtn.setAttribute('aria-label', f ? 'Show project text' : 'Hide project text');
+  if (remember) try { localStorage.setItem('cardFolded', f ? '1' : '0'); } catch {}
+}
+let savedFold = null;
+try { savedFold = localStorage.getItem('cardFolded'); } catch {}
+setFolded(savedFold !== null ? savedFold === '1' : matchMedia('(max-width: 700px)').matches);
+foldBtn.addEventListener('click', () => setFolded(!cardEl.classList.contains('collapsed'), true));
+$('title').addEventListener('click', () => { if (cardEl.classList.contains('collapsed')) setFolded(false, true); });
+const markHintUsed = () => $('hint').classList.add('used');
+addEventListener('wheel', markHintUsed, { once:true }); canvas.addEventListener('pointerdown', markHintUsed, { once:true });
+function showCard(i) {
+  shown = i;
+  if (arBtn.dataset.quicklook) prepareQuickLook(i);
+  [...dotsEl.children].forEach((d, k) => d.setAttribute('aria-current', k === i));
+  const card = $('card'); card.classList.add('swap');
+  clearTimeout(swapTimer);
+  swapTimer = setTimeout(() => {
+    const s = SCENES[i];
+    $('idx').textContent = `${String(i + 1).padStart(2, '0')} / ${String(N).padStart(2, '0')}`;
+    $('eyebrow').textContent = s.eyebrow; $('title').textContent = s.title;
+    $('text').innerHTML = ''; $('text').append(s.text);
+    if (s.email) { const m = document.createElement('span'); m.className = 'mail'; m.textContent = s.email; $('text').append(document.createElement('br'), m); }
+    $('tags').innerHTML = s.tags.map(t => `<span class="tag">${t}</span>`).join('');
+    $('spec').textContent = s.spec;
+    card.classList.remove('swap');
+  }, shown === -1 ? 0 : 180);
+}
+
+/* ------------------------------------------------------------------ WebXR (VR + AR) */
+let inVR = false, xrMode = null, vrIndex = 0, vrPanels = null, vrNav = null, xrBuilt = false;
+const vrBtn = $('vr'), arBtn = $('ar'), vrNote = $('vrNote'), arUI = $('arUI');
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const AR_SCALE = .15;
+const QS = new URLSearchParams(location.search);
+const HAND_MODEL = QS.get('hands') || 'mesh';   // mesh | spheres | boxes | none
+const USE_LAYERS = QS.get('layers') !== '0';    // ?layers=0 forces three.js onto the classic XRWebGLLayer path
+// Hide WebXR Layers support from three.js so it creates an XRWebGLLayer instead of a projection layer
+function hideLayers(session) {
+  const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(session), 'renderState');
+  if (!desc || !desc.get) return;
+  Object.defineProperty(session, 'renderState', { configurable:true, get() {
+    const rs = desc.get.call(this);
+    return new Proxy(rs, { get:(t, k) => k === 'layers' ? undefined : (typeof t[k] === 'function' ? t[k].bind(t) : t[k]) });
+  } });
+}                      // islands become ~40 cm wide on a table
+async function supports(mode) { try { return !!navigator.xr && await navigator.xr.isSessionSupported(mode); } catch { return false; } }
+(async () => {
+  const [vr, ar] = await Promise.all([supports('immersive-vr'), supports('immersive-ar')]);
+  vrBtn.textContent = vr ? 'Enter VR' : 'VR unavailable'; vrBtn.disabled = !vr;
+  if (ar) { arBtn.disabled = false; arBtn.textContent = 'View in AR'; }
+  else if (isIOS) { arBtn.disabled = false; arBtn.textContent = 'View in AR'; arBtn.dataset.quicklook = '1'; prepareQuickLook(Math.round(p)); }
+  else arBtn.textContent = 'AR unavailable';
+  vrNote.textContent = vr || ar ? '' : isIOS ? 'iPhone: AR opens the current island in Quick Look.'
+    : 'Open on a Quest or an Android phone (Chrome, HTTPS) to step inside.';
+})();
+async function startXR(mode) {
+  const ar = mode === 'ar';
+  const base = ar ? { requiredFeatures:['hit-test'], optionalFeatures:['dom-overlay', 'hand-tracking', 'camera-access'], domOverlay:{ root:arUI } }
+    : { optionalFeatures:['local-floor', 'hand-tracking'] };
+  const withDepth = { ...base, optionalFeatures:[...base.optionalFeatures, 'depth-sensing'],
+    depthSensing:{ usagePreference:['cpu-optimized', 'gpu-optimized'], dataFormatPreference:['luminance-alpha', 'float32'] } };
+  try {
+    xrMode = mode;
+    renderer.xr.setReferenceSpaceType(ar ? 'local' : 'local-floor');
+    let session;
+    if (ar) { try { session = await navigator.xr.requestSession('immersive-ar', withDepth); } catch { session = await navigator.xr.requestSession('immersive-ar', base); } }
+    else session = await navigator.xr.requestSession('immersive-vr', base);
+    try { session.__features = [...(session.enabledFeatures || [])]; } catch {}
+    if (!USE_LAYERS) hideLayers(session);
+    if (ar) setupDepth(session);
+    await renderer.xr.setSession(session);
+  } catch (err) { xrMode = null; vrNote.textContent = 'This view blocks WebXR. Open the standalone page in Chrome or the Quest Browser.'; }
+}
+vrBtn.addEventListener('click', () => startXR('vr'));
+arBtn.addEventListener('click', () => arBtn.dataset.quicklook ? quickLook() : startXR('ar'));
+
+/* --- iPhone fallback: export the current island to USDZ for AR Quick Look */
+const qlCache = {}; let qlTimer, USDZExporter;
+function prepareQuickLook(i) { if (!isIOS) return; clearTimeout(qlTimer); qlTimer = setTimeout(() => buildUSDZ(i).catch(() => {}), 600); }
+async function buildUSDZ(i) {
+  if (qlCache[i]) return qlCache[i];
+  if (!USDZExporter) ({ USDZExporter } = await import('three/addons/exporters/USDZExporter.js'));
+  const clone = islands[i].g.clone(true);
+  clone.position.set(0, 1.5 * AR_SCALE, 0); clone.rotation.set(0, 0, 0); clone.scale.setScalar(AR_SCALE);
+  const drop = [];
+  clone.traverse(o => {
+    if (o.isLight || o.isPoints || o.isLine) { drop.push(o); return; }
+    if (!o.isMesh) return;
+    if (Array.isArray(o.material)) o.material = o.material[0];
+    const m = o.material;
+    if (m.isMeshBasicMaterial) o.material = new THREE.MeshStandardMaterial({ color:m.color, emissive:m.color, emissiveIntensity:1, map:m.map, transparent:m.transparent, opacity:m.opacity });
+    else if (!m.isMeshStandardMaterial) drop.push(o);
+  });
+  drop.forEach(o => o.removeFromParent());
+  const root = new THREE.Group(); root.add(clone); root.updateMatrixWorld(true);
+  const exp = new USDZExporter();
+  const data = exp.parseAsync ? await exp.parseAsync(root) : await exp.parse(root);
+  return (qlCache[i] = URL.createObjectURL(new Blob([data], { type:'model/vnd.usdz+zip' })));
+}
+function openQuickLook(url) { const a = document.createElement('a'); a.rel = 'ar'; a.href = url; a.appendChild(document.createElement('img')); a.click(); }
+async function quickLook() {
+  const i = Math.round(p);
+  if (qlCache[i]) return openQuickLook(qlCache[i]);
+  arBtn.textContent = 'Preparing…';
+  try { openQuickLook(await buildUSDZ(i)); }
+  catch (e) { vrNote.textContent = 'Quick Look could not open here. Try the standalone page in Safari.'; }
+  finally { arBtn.textContent = 'View in AR'; }
+}
+
+/* --- hand interactions: poke buttons, touch objects, pinch (or squeeze) to grab */
+const handsState = [];
+const navButtons = [];
+const tipW = new THREE.Vector3(), thumbW = new THREE.Vector3(), vLocal = new THREE.Vector3(), scaleTmp = new THREE.Vector3();
+const box3 = new THREE.Box3(), mInv = new THREE.Matrix4(), mTmp = new THREE.Matrix4();
+const held = new Map();                    // object -> { src, offset }
+function nearestObject(pt, maxDist) {
+  let best = null, bd = maxDist;
+  for (const o of hoverables) {
+    if (o.userData.island !== vrIndex || held.has(o)) continue;
+    const d = box3.setFromObject(o).distanceToPoint(pt);
+    if (d < bd) { bd = d; best = o; }
+  }
+  return best;
+}
+function grab(o, src) {
+  src.updateMatrixWorld(); o.updateMatrixWorld();
+  held.set(o, { src, offset:new THREE.Matrix4().copy(src.matrixWorld).invert().multiply(o.matrixWorld) });
+  o.userData.ret = undefined;
+}
+function release(o) {
+  if (!held.delete(o)) return;
+  o.userData.relPos = o.position.clone(); o.userData.relQuat = o.quaternion.clone(); o.userData.ret = 0;   // float home
+}
+function applyHeld(dt) {
+  for (const [o, h] of held) {
+    o.parent.updateMatrixWorld();
+    mTmp.multiplyMatrices(h.src.matrixWorld, h.offset).premultiply(mInv.copy(o.parent.matrixWorld).invert());
+    mTmp.decompose(o.position, o.quaternion, scaleTmp);
+  }
+  for (const o of hoverables) {
+    const u = o.userData;
+    if (u.ret === undefined) continue;
+    u.ret = Math.min(1, u.ret + dt * 1.4);
+    const e = 1 - Math.pow(1 - u.ret, 3), home = o.quaternion.clone();
+    o.position.lerpVectors(u.relPos, o.position, e);
+    o.quaternion.slerpQuaternions(u.relQuat, home, e);
+    if (u.ret >= 1) u.ret = undefined;
+  }
+}
+// Returns the object the fingertips are near, for hover highlighting
+function updateHands(now) {
+  const k = dolly.scale.x;                 // world units per real metre (≠1 in AR)
+  let near = null;
+  for (const H of handsState) {
+    const j = H.hand.joints, tip = j['index-finger-tip'], th = j['thumb-tip'], wr = j['wrist'];
+    if (!tip || !th || !tip.visible) {
+      if (H.heldObj) { release(H.heldObj); H.heldObj = null; }
+      if (H.heldBall) { throwBall(); H.heldBall = false; }
+      H.pinch = false; H.lastBtn = H.lastTouch = null; continue;
+    }
+    tip.getWorldPosition(tipW); th.getWorldPosition(thumbW);
+    const gap = tipW.distanceTo(thumbW) / k;
+    const pinching = H.pinch ? gap < (H.pinchOff || .035) : gap < (H.pinchOn || .018);   // hysteresis so a grab doesn't flicker
+    H.point.position.addVectors(tipW, thumbW).multiplyScalar(.5);
+    if (wr) wr.getWorldQuaternion(H.point.quaternion);
+    H.point.updateMatrixWorld();
+    if (pinching && !H.pinch) {
+      if (!ballS.held && world.visible && ball.position.distanceTo(H.point.position) < BALL_R + .05 * k * (H.reach || 1)) { grabBall(H.point); H.heldBall = true; }
+      else { const o = nearestObject(H.point.position, .06 * k * (H.reach || 1)); if (o) { grab(o, H.point); H.heldObj = o; } }
+    }
+    if (!pinching && H.heldObj) { release(H.heldObj); H.heldObj = null; }
+    if (!pinching && H.heldBall) { throwBall(); H.heldBall = false; }
+    H.pinch = pinching;
+
+    // poke the Prev / Next buttons with the index fingertip
+    let inBtn = null;
+    if (vrNav && vrNav.visible) for (const b of navButtons) {
+      vLocal.copy(tipW); b.worldToLocal(vLocal);
+      if (Math.abs(vLocal.x) < .1 && Math.abs(vLocal.y) < .045 && vLocal.z < .02 && vLocal.z > -.05) inBtn = b;
+    }
+    if (inBtn && inBtn !== H.lastBtn && now > (H.pokeCd || 0)) { inBtn.material.emissiveIntensity = 1.2; vrGo(vrIndex + inBtn.userData.dir); H.pokeCd = now + 700; }
+    H.lastBtn = inBtn;
+
+    // touching an object gives it a spin; being close highlights it
+    if (!H.heldObj) {
+      const touched = nearestObject(tipW, .012 * k);
+      if (touched && touched !== H.lastTouch) touched.userData.spinV = 6;
+      H.lastTouch = touched;
+      near = near || nearestObject(tipW, .1 * k);
+    }
+  }
+  return near;
+}
+
+
+/* --- occlusion: real-world depth hides virtual pixels behind it */
+const occ = { mode:null, on:true, format:0, tex:null };
+try { occ.on = localStorage.getItem('occlusion') !== '0'; } catch {}
+const occU = {
+  uDepthTex:{ value:null }, uDepthOn:{ value:0 }, uUvT:{ value:new THREE.Matrix4() }, uRaw:{ value:.001 },
+  uVp:{ value:new THREE.Vector4(0, 0, 1, 1) }, uNF:{ value:new THREE.Vector2(.05, 400) }, uFmt:{ value:0 }
+};
+const OCC_PARS = `uniform sampler2D uDepthTex; uniform float uDepthOn; uniform mat4 uUvT; uniform float uRaw; uniform vec4 uVp; uniform vec2 uNF; uniform float uFmt;
+float occReal(vec2 uv) { vec4 d = texture2D(uDepthTex, uv); return (uFmt < .5 ? dot(d.rg, vec2(255., 65280.)) : d.r) * uRaw; }
+`;
+const OCC_MAIN = `
+if (uDepthOn > .5) {
+  vec2 su = (gl_FragCoord.xy - uVp.xy) / uVp.zw;
+  vec2 duv = (uUvT * vec4(su.x, 1. - su.y, 0., 1.)).xy;
+  float real = occReal(duv);
+  float z = gl_FragCoord.z * 2. - 1.;
+  float fragD = 2. * uNF.x * uNF.y / (uNF.y + uNF.x - z * (uNF.y - uNF.x));
+  if (real > .05 && real < fragD - .025) discard;
+}`;
+function addOcclusion(m) {
+  if (m.userData.occ || !(m.isMeshStandardMaterial || m.isMeshBasicMaterial)) return;
+  m.userData.occ = true;
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, occU);
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', OCC_PARS + 'void main() {').replace('#include <dithering_fragment>', '#include <dithering_fragment>' + OCC_MAIN);
+  };
+  m.customProgramCacheKey = () => 'occ';
+  m.needsUpdate = true;
+}
+world.traverse(o => { if (o.material) [].concat(o.material).forEach(addOcclusion); });
+
+// three.js only knows the GPU depth path (Quest 3). For phones (CPU depth) we feed the shader ourselves
+// and hide the feature from three.js so it doesn't try its GPU binding.
+function setupDepth(session) {
+  occ.mode = null;
+  const f = session.enabledFeatures || [];
+  if (!f.includes('depth-sensing')) return;
+  let usage = null; try { usage = session.depthUsage; occ.format = session.depthDataFormat === 'float32' ? 1 : 0; } catch {}
+  if (usage === 'gpu-optimized' && session.renderState.layers !== undefined) { occ.mode = 'gpu'; return; }
+  if (usage === 'cpu-optimized') occ.mode = 'cpu';
+  Object.defineProperty(session, 'enabledFeatures', { value:f.filter(x => x !== 'depth-sensing'), configurable:true });
+}
+function updateCpuDepth(frame) {
+  const ref = renderer.xr.getReferenceSpace(), pose = ref && frame.getViewerPose(ref);
+  if (!pose) return;
+  let d = null; try { d = frame.getDepthInformation(pose.views[0]); } catch {}
+  if (!d) return;
+  if (!occ.tex || occ.tex.image.width !== d.width || occ.tex.image.height !== d.height) {
+    occ.tex?.dispose();
+    const data = occ.format ? new Float32Array(d.width * d.height) : new Uint8Array(d.width * d.height * 2);
+    occ.tex = new THREE.DataTexture(data, d.width, d.height, occ.format ? THREE.RedFormat : THREE.RGFormat, occ.format ? THREE.FloatType : THREE.UnsignedByteType);
+    occ.tex.unpackAlignment = 1; occ.tex.magFilter = occ.tex.minFilter = THREE.NearestFilter;
+    occU.uDepthTex.value = occ.tex;
+  }
+  occ.tex.image.data.set(occ.format ? new Float32Array(d.data) : new Uint8Array(d.data));
+  occ.tex.needsUpdate = true;
+  occU.uUvT.value.fromArray(d.normDepthBufferFromNormView.matrix);
+  occU.uRaw.value = d.rawValueToMeters; occU.uFmt.value = occ.format;
+  const cam = renderer.xr.getCamera().cameras[0]; if (cam) occU.uVp.value.copy(cam.viewport);
+  occU.uNF.value.set(camera.near, camera.far);
+}
+function setOcclusion(on) {
+  occ.on = on;
+  try { localStorage.setItem('occlusion', on ? '1' : '0'); } catch {}
+  $('arOcc').textContent = 'Occlusion: ' + (on ? 'on' : 'off');
+  $('arOcc').setAttribute('aria-pressed', on);
+  refreshPalm();
+}
+$('arOcc').addEventListener('click', () => setOcclusion(!occ.on));
+
+/* --- palm menu (Quest hands): turn a palm toward you, poke a tile with the other hand */
+const palm = { menu:null, tiles:[], openT:0, handIdx:-1, hold:0, lastTile:null, cd:0 };
+const TILE_NAMES = ['Welcome', 'Museum', 'Lab', 'Campus', 'Contact'];
+function drawTile(c, W, H, i) {
+  c.clearRect(0, 0, W, H);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  if (i < N) {
+    c.fillStyle = '#3ee6f5'; c.font = '500 44px "JetBrains Mono", monospace'; c.fillText(String(i + 1).padStart(2, '0'), W / 2, 80);
+    c.fillStyle = '#fff'; c.font = '700 50px "Bricolage Grotesque", sans-serif'; c.fillText(TILE_NAMES[i], W / 2, 165);
+  } else {
+    const occTile = xrMode === 'ar' && occ.mode;
+    c.fillStyle = '#ff8a5b'; c.font = '500 36px "JetBrains Mono", monospace'; c.fillText(occTile ? (occ.on ? 'ON' : 'OFF') : 'EXIT', W / 2, 80);
+    c.fillStyle = '#fff'; c.font = '700 44px "Bricolage Grotesque", sans-serif'; c.fillText(occTile ? 'Occlusion' : xrMode === 'ar' ? 'Leave AR' : 'Leave VR', W / 2, 165);
+  }
+}
+function buildPalmMenu() {
+  const m = new THREE.Group(); m.visible = false; dolly.add(m);
+  for (let i = 0; i < 6; i++) {
+    const tile = new THREE.Mesh(new RoundedBoxGeometry(.062, .062, .012, 3, .01), new THREE.MeshStandardMaterial({ color:0x2a2160, roughness:.5, emissive:0x3ee6f5, emissiveIntensity:0 }));
+    tile.position.set((i % 3 - 1) * .072, (.5 - Math.floor(i / 3)) * .072, 0);
+    const tex = canvasTex(256, 256, (c, W, H) => drawTile(c, W, H, i));
+    const lbl = new THREE.Mesh(new THREE.PlaneGeometry(.056, .056), new THREE.MeshBasicMaterial({ map:tex, transparent:true }));
+    lbl.position.z = .0065; tile.add(lbl);
+    tile.userData = { idx:i, tex };
+    m.add(tile); palm.tiles.push(tile);
+  }
+  palm.menu = m;
+}
+function refreshPalm() {
+  palm.tiles.forEach(t => {
+    const cv = t.userData.tex.image; drawTile(cv.getContext('2d'), cv.width, cv.height, t.userData.idx); t.userData.tex.needsUpdate = true;
+    t.material.color.setHex(t.userData.idx === vrIndex ? 0x1f7280 : t.userData.idx === N ? 0x4a2438 : 0x2a2160);
+  });
+}
+function activateTile(i) {
+  if (i < N) { vrGo(i); setTimeout(refreshPalm, 50); return; }
+  if (xrMode === 'ar' && occ.mode) setOcclusion(!occ.on);
+  else renderer.xr.getSession()?.end();
+}
+const pa = new THREE.Vector3(), pb = new THREE.Vector3(), pn = new THREE.Vector3(), pc = new THREE.Vector3(), toHead = new THREE.Vector3(), headW = new THREE.Vector3();
+function palmInfo(H) {                         // palm normal + centre in rig space (joints are children of the rig)
+  const j = H.hand.joints, w = j['wrist'], ip = j['index-finger-phalanx-proximal'], pp = j['pinky-finger-phalanx-proximal'];
+  if (!w || !ip || !pp || !w.visible) return null;
+  pa.subVectors(ip.position, w.position); pb.subVectors(pp.position, w.position);
+  pn.crossVectors(pa, pb).normalize(); if (H.handedness === 'left') pn.negate();
+  pc.copy(w.position).add(ip.position).add(pp.position).divideScalar(3);
+  return { n:pn, c:pc, facing:pn.dot(toHead.subVectors(camera.position, pc).normalize()) };
+}
+function updatePalm(dt, now) {
+  if (!palm.menu) return;
+  let want = -1;
+  handsState.forEach((H, i) => { if (H.camera) return; const inf = palmInfo(H); if (inf && inf.facing > (palm.handIdx === i ? .45 : .8) && (want === -1 || i === palm.handIdx)) want = i; });
+  if (want === -1) { palm.hold = 0; palm.handIdx = -1; }
+  else if (palm.handIdx === -1 && (palm.hold += dt) > .3) { palm.handIdx = want; refreshPalm(); }
+  palm.openT += ((palm.handIdx >= 0 ? 1 : 0) - palm.openT) * (1 - Math.exp(-dt * 12));
+  palm.menu.visible = palm.openT > .02;
+  palm.tiles.forEach(t => t.material.emissiveIntensity *= .88);
+  if (!palm.menu.visible || palm.handIdx < 0) return;
+  const inf = palmInfo(handsState[palm.handIdx]);
+  if (inf) {
+    palm.menu.position.copy(inf.c).addScaledVector(inf.n, .06); palm.menu.position.y += .07;
+    palm.menu.lookAt(camera.getWorldPosition(headW));
+  }
+  palm.menu.scale.setScalar(Math.max(.001, palm.openT));
+  const other = handsState.find((H, i) => i !== palm.handIdx && !H.camera && H.hand.joints['index-finger-tip']?.visible);
+  if (!other) return;
+  other.hand.joints['index-finger-tip'].getWorldPosition(tipW);
+  let inTile = null;
+  for (const t of palm.tiles) { vLocal.copy(tipW); t.worldToLocal(vLocal); if (Math.abs(vLocal.x) < .034 && Math.abs(vLocal.y) < .034 && vLocal.z < .014 && vLocal.z > -.03) inTile = t; }
+  if (inTile && inTile !== palm.lastTile && now > palm.cd) { inTile.material.emissiveIntensity = 1.2; activateTile(inTile.userData.idx); palm.cd = now + 600; }
+  palm.lastTile = inTile;
+}
+
+/* --- phone AR: tap to place, swipe up to throw */
+const camW = new THREE.Vector3(), fwd = new THREE.Vector3(), rightV = new THREE.Vector3();
+let swipe = null, thrown = false;
+arUI.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; swipe = { x:e.clientX, y:e.clientY, t:performance.now() }; });
+arUI.addEventListener('pointerup', e => {
+  if (!swipe) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y, ms = Math.max(16, performance.now() - swipe.t), dist = Math.hypot(dx, dy);
+  swipe = null;
+  if (dist < 14) {
+    if (reticle.visible) { arHit = arCand.clone(); placeAR(); showArHint(thrown ? '' : 'Swipe up to throw the ball'); }
+    return;
+  }
+  if (!world.visible || dy > -20) return;
+  const k = dolly.scale.x, speed = THREE.MathUtils.clamp(dist / ms * 2.2, .8, 4.5);
+  camera.getWorldPosition(camW); camera.getWorldDirection(fwd);
+  rightV.crossVectors(fwd, Y).normalize();
+  const dir = fwd.clone().addScaledVector(Y, .3 + (-dy / dist) * .25).addScaledVector(rightV, dx / dist * .5).normalize();
+  ball.position.copy(camW).addScaledVector(fwd, .12 * k).addScaledVector(Y, -.05 * k);
+  ballS.held = null; ballS.v.copy(dir).multiplyScalar(speed * k); ballS.island = vrIndex; ballS.rest = 0;
+  thrown = true; showArHint('');
+});
+function showArHint(txt) { $('arHint').textContent = txt; $('arHint').hidden = !txt; }
+
+
+/* ------------------------------------------------------------------ MediaPipe (face + hands), loaded on demand */
+const MP_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+const HAND_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+let mp = null;
+async function mediapipe() {
+  if (!mp) { const mod = await import(`${MP_BASE}/vision_bundle.mjs`); mp = { mod, fs:await mod.FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`) }; }
+  return mp;
+}
+async function createTask(Task, opts) {          // GPU first, CPU if the GPU delegate is refused
+  const { fs } = await mediapipe();
+  try { return await Task.createFromOptions(fs, { ...opts, baseOptions:{ ...opts.baseOptions, delegate:'GPU' } }); }
+  catch { return await Task.createFromOptions(fs, { ...opts, baseOptions:{ ...opts.baseOptions, delegate:'CPU' } }); }
+}
+
+/* ------------------------------------------------------------------ portal mode: head-coupled perspective through a frame */
+const portal = { on:false, stream:null, face:null, lastT:-1, calib:[], neutral:null, head:new THREE.Vector3(), headS:new THREE.Vector3(),
+  yaw:0, pitch:0, yawS:0, pitchS:0, seenAt:0, frame:null, gaze:null, hw:1.3, hh:.73, zoomS:0, mouseZ:1 };
+const portalBtn = $('portalBtn'), portalStatus = $('portalStatus'), portalCam = $('portalCam');
+if (QS.get('portal') === 'mouse') addEventListener('load', () => startMousePortal('Mouse portal — move the pointer, + / − to lean in'));
+portalBtn.addEventListener('click', () => portal.on ? stopPortal() : startPortal());
+$('portalExit').addEventListener('click', () => stopPortal());
+const gazeLight = new THREE.PointLight(0xffe2b8, 0, 3.5, 2);  // always in the scene so shaders don't recompile when it turns on
+world.add(gazeLight);
+
+async function startPortal() {
+  portalBtn.disabled = true; portalBtn.textContent = 'Starting camera…';
+  try {
+    portal.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
+    portalCam.srcObject = portal.stream; await portalCam.play();
+    portalBtn.textContent = 'Loading face model…';
+    if (!portal.face) portal.face = await createTask(mp?.mod.FaceLandmarker || (await mediapipe()).mod.FaceLandmarker,
+      { baseOptions:{ modelAssetPath:FACE_MODEL }, runningMode:'VIDEO', numFaces:1 });
+    portal.on = true; portal.calib = []; portal.neutral = null; portal.lastT = -1;
+    document.body.classList.add('portal-on'); setFolded(true, false);
+    portalStatus.textContent = 'Hold still for a second…';
+    buildPortalFrame();
+  } catch (err) {
+    console.warn('[archipelago] portal camera unavailable, falling back to mouse:', err && err.message || err);
+    startMousePortal('No camera — steer with the mouse, + / − to lean in');
+  }
+  portalBtn.disabled = false; portalBtn.textContent = portal.on ? 'Exit portal' : 'Portal';
+}
+function startMousePortal(msg) {                 // same portal, but the pointer stands in for your head
+  portal.stream?.getTracks().forEach(t => t.stop()); portal.stream = null;
+  portal.on = true; portal.mouse = true; portal.neutral = { x:0, y:0, z:1, yaw:0, pitch:0 };
+  document.body.classList.add('portal-on', 'portal-mouse'); setFolded(true, false);
+  portalStatus.textContent = msg; buildPortalFrame(); portalBtn.textContent = 'Exit portal';
+}
+function stopPortal() {
+  portal.mouse = false; document.body.classList.remove('portal-mouse');
+  portal.stream?.getTracks().forEach(t => t.stop()); portal.stream = null; portalCam.srcObject = null;
+  portal.on = false; portal.gaze = null; gazeLight.intensity = 0;
+  if (portal.frame) portal.frame.visible = false;
+  document.body.classList.remove('portal-on'); portalBtn.textContent = 'Portal';
+  onResize();
+}
+function buildPortalFrame() {
+  if (!innerWidth || !innerHeight) return;                  // pane/tab not laid out yet
+  if (portal.frame) { portal.frame.traverse(o => o.geometry?.dispose()); portal.frame.removeFromParent(); }
+  const a = innerWidth / innerHeight;
+  portal.hw = a >= 1 ? 1.3 : .78; portal.hh = portal.hw / a;
+  const { hw, hh } = portal, hi = hw - Math.min(hw, hh) * .09, vi = hh - Math.min(hw, hh) * .09, D = .7, far = 3;
+  const g = new THREE.Group(), stone = mat(0x1d1638), inner = mat(0x3a2d6a, { roughness:.7 });
+  const box = (x0, x1, y0, y1, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, D), m); b.position.set((x0 + x1) / 2, (y0 + y1) / 2, -D / 2); b.receiveShadow = true; g.add(b); };
+  box(-hw - far, hw + far, vi, hh + far, [stone, stone, stone, inner, stone, stone]);        // top: its underside (-y face) is the tunnel ceiling
+  box(-hw - far, hw + far, -hh - far, -vi, [stone, stone, inner, stone, stone, stone]);      // bottom
+  box(-hw - far, -hi, -vi, vi, [inner, stone, stone, stone, stone, stone]);                 // left: +x face lines the tunnel
+  box(hi, hw + far, -vi, vi, [stone, inner, stone, stone, stone, stone]);                   // right
+  const rim = glow(0x3ee6f5, 1.6), t = .012;
+  [[0, vi, 2 * hi, t], [0, -vi, 2 * hi, t], [-hi, 0, t, 2 * vi], [hi, 0, t, 2 * vi]].forEach(([x, y, w, h]) => {
+    const r = new THREE.Mesh(new THREE.BoxGeometry(w, h, t), rim); r.position.set(x, y, .002); g.add(r);
+    const r2 = r.clone(); r2.position.z = -D; g.add(r2);                                       // second rim at the back of the tunnel
+  });
+  portal.frame = g; scene.add(g);
+}
+const pCenter = new THREE.Vector3(), pEye = new THREE.Vector3(), gazeDir = new THREE.Vector3();
+function updateFace(now) {
+  if (portal.mouse) {
+    portal.head.set(mouse.sx * .14, -mouse.sy * .09, portal.mouseZ); portal.yaw = mouse.sx * .35; portal.pitch = -mouse.sy * .25; portal.seenAt = now;
+    return;
+  }
+  const v = portalCam;
+  if (v.readyState < 2 || v.currentTime === portal.lastT) return;
+  portal.lastT = v.currentTime;
+  const lm = portal.face.detectForVideo(v, now).faceLandmarks?.[0];
+  if (!lm) { if (now - portal.seenAt > 600) portalStatus.textContent = 'Looking for your face…'; return; }
+  portal.seenAt = now;
+  const ar = v.videoWidth / v.videoHeight, eL = lm[468] || lm[33], eR = lm[473] || lm[263], nose = lm[1];
+  const cx = (eL.x + eR.x) / 2, cy = (eL.y + eR.y) / 2;
+  const ipd = Math.hypot((eL.x - eR.x) * ar, eL.y - eR.y, (eL.z - eR.z) * ar);    // 3D, so turning your head doesn't read as moving away
+  const tanV = Math.tan(THREE.MathUtils.degToRad(26));                             // typical selfie/webcam half-FOV (vertical)
+  const d = .063 / (ipd * 2 * tanV);                                                // metres from camera
+  const sample = { x:-(cx - .5) * 2 * tanV * ar * d, y:-(cy - .5) * 2 * tanV * d, z:d,
+    yaw:-(nose.x - cx) * ar / ipd, pitch:(nose.y - cy) / ipd };
+  if (!portal.neutral) {                                                            // first ~20 frames define "straight ahead"
+    portal.calib.push(sample);
+    if (portal.calib.length >= 20) {
+      const n = { x:0, y:0, z:0, yaw:0, pitch:0 };
+      portal.calib.forEach(s => { for (const k in n) n[k] += s[k] / portal.calib.length; });
+      portal.neutral = n; portalStatus.textContent = 'Tracking — move your head';
+    }
+    return;
+  }
+  const n = portal.neutral;
+  portal.head.set(sample.x - n.x, sample.y - n.y, sample.z / n.z);
+  portal.yaw = THREE.MathUtils.clamp((sample.yaw - n.yaw) * .9, -.6, .6);
+  portal.pitch = THREE.MathUtils.clamp(-(sample.pitch - n.pitch) * .9, -.5, .5);
+}
+function placePortalCamera(dt) {
+  const k = 1 - Math.exp(-dt * 10), lost = performance.now() - portal.seenAt > 800;
+  portal.headS.lerp(lost || !portal.neutral ? tmp.set(0, 0, 1) : portal.head, k);
+  portal.yawS += ((lost ? 0 : portal.yaw) - portal.yawS) * k; portal.pitchS += ((lost ? 0 : portal.pitch) - portal.pitchS) * k;
+  const i = Math.min(Math.floor(p), N - 2), f = p - i;
+  pCenter.lerpVectors(views[i].tgt, views[i + 1].tgt, f).add(tmp.set(0, .12, 2.1));
+  // lean in to zoom: getting closer than the calibrated distance moves the window into the world
+  const closer = THREE.MathUtils.clamp(portal.headS.z, .5, 1.6);
+  const zin = THREE.MathUtils.clamp((1 - closer) / .45, -.6, 1);
+  const zoom = Math.sign(zin) * Math.max(0, Math.abs(zin) - .08) / .92;             // small dead zone against jitter
+  portal.zoomS += (zoom - portal.zoomS) * (1 - Math.exp(-dt * 6));
+  pCenter.z -= portal.zoomS * 1.7;
+  const EZ0 = 3, GAIN = 9, ez = EZ0 * THREE.MathUtils.lerp(1, closer, .3);           // keep a bit of the real-window widening
+  const ex = THREE.MathUtils.clamp(portal.headS.x * GAIN, -1.6, 1.6), ey = THREE.MathUtils.clamp(portal.headS.y * GAIN, -1.2, 1.2);
+  pEye.set(pCenter.x + ex, pCenter.y + ey, pCenter.z + ez);
+  const { hw, hh } = portal, nr = .05, s = nr / ez;                                 // Kooima off-axis frustum for a window facing +z
+  camera.position.copy(pEye); camera.quaternion.identity();
+  camera.projectionMatrix.makePerspective((-hw - ex) * s, (hw - ex) * s, (hh - ey) * s, (-hh - ey) * s, nr, 400);
+  camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+  camera.updateMatrixWorld();
+  if (portal.frame) {
+    const pass = Math.max(0, portal.zoomS - .55) / .45;                             // the last stretch: the frame slides past you
+    portal.frame.visible = pass < .99; portal.frame.position.copy(pCenter);
+    portal.frame.scale.set(1 + pass * 1.4, 1 + pass * 1.4, 1);
+  }
+  // gaze: where the head points picks the object you're looking at, and a soft light follows it
+  gazeDir.set(Math.sin(portal.yawS) * Math.cos(portal.pitchS), Math.sin(portal.pitchS), -Math.cos(portal.yawS) * Math.cos(portal.pitchS));
+  raycaster.set(pEye, gazeDir);
+  portal.gaze = lost ? null : pick(raycaster);
+  const hit = raycaster.intersectObjects(islands.map(is => is.g), true)[0];
+  if (hit && !lost) { gazeLight.position.copy(hit.point).addScaledVector(gazeDir, -.5); gazeLight.intensity += (2.2 - gazeLight.intensity) * k; }
+  else gazeLight.intensity *= 1 - k;
+}
+
+/* ------------------------------------------------------------------ AR: hands seen by the back camera (WebXR Raw Camera Access) */
+const camHands = { on:false, lm:null, binding:null, prog:null, vao:null, fb:null, rb:null, W:0, H:0, px:null, img:null, tick:0, miss:0, H:null, joints:null, busy:false };
+const CAM_JOINTS = { 'wrist':0, 'thumb-tip':4, 'index-finger-phalanx-proximal':5, 'index-finger-tip':8, 'middle-finger-metacarpal':9, 'pinky-finger-phalanx-proximal':17 };
+function camAccessGranted(session) { try { return (session.__features || session.enabledFeatures || []).includes('camera-access'); } catch { return false; } }
+$('arHands').addEventListener('click', async () => {
+  const b = $('arHands');
+  if (camHands.on) { camHands.on = false; setCamJointsVisible(false); b.textContent = 'Camera hands: off'; showArHint(''); return; }
+  b.disabled = true; b.textContent = 'Loading hand model…';
+  try {
+    if (!camHands.lm) camHands.lm = await createTask((await mediapipe()).mod.HandLandmarker,
+      { baseOptions:{ modelAssetPath:HAND_MODEL_URL }, runningMode:'VIDEO', numHands:1, minHandDetectionConfidence:.5, minTrackingConfidence:.5 });
+    if (!camHands.H) buildCamHand();
+    camHands.on = true; b.textContent = 'Camera hands: on';
+    showArHint('Hold your free hand in front of the camera · pinch near the ball to grab it');
+  } catch (err) { b.textContent = 'Hand model failed'; console.error('[archipelago] hand model', err); }
+  b.disabled = false;
+});
+function buildCamHand() {
+  const joints = {}, group = new THREE.Group(); scene.add(group);
+  for (const name in CAM_JOINTS) { const o = new THREE.Object3D(); o.visible = false; group.add(o); joints[name] = o; }
+  const dots = [], dm = new THREE.MeshBasicMaterial({ color:0x3ee6f5, transparent:true, opacity:.9, depthTest:false });
+  for (let i = 0; i < 21; i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), dm); m.renderOrder = 998; m.visible = false; group.add(m); dots.push(m); }
+  camHands.H = { hand:{ joints }, point:new THREE.Object3D(), pinch:false, heldObj:null, heldBall:false, lastBtn:null, lastTouch:null,
+    handedness:'right', camera:true, pinchOn:.035, pinchOff:.06, reach:2 };
+  scene.add(camHands.H.point);
+  camHands.dots = dots; camHands.pts = Array.from({ length:21 }, () => new THREE.Vector3()); camHands.fresh = true;
+  handsState.push(camHands.H);
+}
+function setCamJointsVisible(v) {
+  if (!camHands.H) return;
+  Object.values(camHands.H.hand.joints).forEach(o => o.visible = v);
+  camHands.dots.forEach(d => d.visible = v);
+  if (!v) camHands.fresh = true;
+}
+function ensureCamBlit(gl) {
+  if (camHands.prog) return;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, `#version 300 es
+out vec2 uv; void main() { vec2 q = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); uv = q; gl_Position = vec4(q * 2. - 1., 0., 1.); }`));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision mediump float; uniform sampler2D cam; in vec2 uv; out vec4 o; void main() { o = texture(cam, vec2(uv.x, 1. - uv.y)); }`));
+  gl.linkProgram(p);
+  camHands.prog = p; camHands.uCam = gl.getUniformLocation(p, 'cam');
+  camHands.vao = gl.createVertexArray(); camHands.fb = gl.createFramebuffer(); camHands.rb = gl.createRenderbuffer();
+}
+const camM = new THREE.Matrix4(), jb = new THREE.Matrix4(), ax = new THREE.Vector3(), ay = new THREE.Vector3(), az = new THREE.Vector3();
+function updateCamHands(frame, now) {
+  if (!camHands.on || !camHands.lm || !camHands.binding || (++camHands.tick & 1)) return;   // every other frame
+  const ref = renderer.xr.getReferenceSpace(), pose = frame.getViewerPose(ref), view = pose && pose.views[0];
+  if (!view || !view.camera) return;
+  const tex = camHands.binding.getCameraImage(view.camera);
+  if (!tex) return;
+  const gl = renderer.getContext(), cw = view.camera.width, ch = view.camera.height, W = 256, H = Math.max(2, Math.round(256 * ch / cw));
+  ensureCamBlit(gl);
+  if (camHands.W !== W || camHands.H2 !== H) {
+    gl.bindRenderbuffer(gl.RENDERBUFFER, camHands.rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, W, H);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, camHands.fb); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, camHands.rb);
+    camHands.W = W; camHands.H2 = H; camHands.img = new ImageData(W, H);
+  }
+  // draw the camera texture into a small offscreen buffer (flipped so row 0 = top), then read it back
+  gl.bindFramebuffer(gl.FRAMEBUFFER, camHands.fb); gl.viewport(0, 0, W, H);
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.CULL_FACE); gl.colorMask(true, true, true, true);
+  gl.useProgram(camHands.prog); gl.bindVertexArray(camHands.vao);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(camHands.uCam, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(camHands.img.data.buffer));
+  gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  renderer.resetState();                                   // three.js re-applies its own GL state before rendering
+  const lm = camHands.lm.detectForVideo(camHands.img, now).landmarks?.[0];
+  if (!lm) { if (++camHands.miss > 6) setCamJointsVisible(false); return; }
+  camHands.miss = 0;
+  // landmarks → rays in view space → points at the depth implied by the palm's real size (~8.5 cm wrist→middle knuckle)
+  const P = view.projectionMatrix, fx = P[0], fy = P[5], ox = P[8], oy = P[9];
+  const ray = (l, v) => v.set((l.x * 2 - 1 + ox) / fx, (1 - l.y * 2 + oy) / fy, -1);
+  const r0 = ray(lm[0], ax), r9 = ray(lm[9], ay), depth = THREE.MathUtils.clamp(.085 / r0.distanceTo(r9), .12, 1.2);
+  camM.multiplyMatrices(dolly.matrixWorld, jb.fromArray(view.transform.matrix));        // view space → world (includes the AR "giant" scale)
+  const k = dolly.scale.x, a = camHands.fresh ? 1 : .55;
+  lm.forEach((l, i) => {
+    const d = depth * (1 - l.z * 2 / fx);
+    ray(l, az).multiplyScalar(d).applyMatrix4(camM);
+    camHands.pts[i].lerp(az, a);
+    const dot = camHands.dots[i]; dot.position.copy(camHands.pts[i]); dot.scale.setScalar((i % 4 === 0 ? .008 : .005) * k); dot.visible = true;
+  });
+  camHands.fresh = false;
+  const J = camHands.H.hand.joints;
+  for (const name in J) { J[name].position.copy(camHands.pts[CAM_JOINTS[name]]); J[name].visible = true; }
+  ay.subVectors(camHands.pts[9], camHands.pts[0]).normalize(); ax.subVectors(camHands.pts[5], camHands.pts[17]).normalize();
+  az.crossVectors(ax, ay).normalize(); ax.crossVectors(ay, az);
+  J['wrist'].quaternion.setFromRotationMatrix(jb.makeBasis(ax, ay, az));
+  J['wrist'].updateMatrixWorld();
+}
+function stopCamHands() {
+  camHands.on = false; camHands.binding = null; setCamJointsVisible(false);
+  if (camHands.H) { if (camHands.H.heldBall) throwBall(); camHands.H.heldBall = false; camHands.H.heldObj = null; }
+  $('arHands').textContent = 'Camera hands: off';
+}
+
+/* --- shared XR objects */
+const fade = new THREE.Mesh(new THREE.SphereGeometry(.3, 16, 12), new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide, transparent:true, opacity:0, depthTest:false }));
+fade.renderOrder = 999; fade.visible = false; camera.add(fade);
+let fadeT = 0, pendingVR = null;
+const reticle = new THREE.Mesh(new THREE.RingGeometry(.07, .09, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color:0x3ee6f5, transparent:true, opacity:.9 }));
+reticle.matrixAutoUpdate = false; reticle.visible = false; dolly.add(reticle);
+let hitSource = null, arHit = null;
+const arCand = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
+
+function drawPanel(s) {
+  return canvasTex(1024, 640, (x, W, H) => {
+    x.fillStyle = 'rgba(20,13,40,.92)'; x.strokeStyle = 'rgba(230,220,255,.22)'; x.lineWidth = 3;
+    x.beginPath(); x.roundRect(4, 4, W - 8, H - 8, 44); x.fill(); x.stroke();
+    x.fillStyle = '#3ee6f5'; x.font = '500 26px "JetBrains Mono", monospace'; x.fillText(s.eyebrow.toUpperCase(), 64, 96);
+    const wrap = (txt, font, lh, y, max) => { x.font = font; let line = ''; for (const w of txt.split(' ')) { const tst = line ? line + ' ' + w : w; if (x.measureText(tst).width > max && line) { x.fillText(line, 64, y); y += lh; line = w; } else line = tst; } x.fillText(line, 64, y); return y + lh; };
+    x.fillStyle = '#f4efff'; let y = wrap(s.title, '800 66px "Bricolage Grotesque", sans-serif', 70, 176, W - 128);
+    x.fillStyle = '#c9c2e6'; y = wrap(s.text, '400 31px "Instrument Sans", sans-serif', 44, y + 8, W - 128);
+    if (s.email) { x.fillStyle = '#f4efff'; x.font = '700 34px "Bricolage Grotesque", sans-serif'; x.fillText(s.email, 64, y + 6); }
+    let tx = 64; x.font = '500 24px "JetBrains Mono", monospace';
+    for (const t of s.tags) { const w = x.measureText(t).width + 40; x.fillStyle = '#1d2448'; x.beginPath(); x.roundRect(tx, 540, w, 50, 25); x.fill(); x.fillStyle = '#c9f1ff'; x.fillText(t, tx + 20, 574); tx += w + 14; }
+  });
+}
+function buildPanels() {
+  vrPanels = islands.map((is, i) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, .625), new THREE.MeshBasicMaterial({ map:drawPanel(SCENES[i]), transparent:true }));
+    m.position.set(is.x + 1.75, 1.45 + is.y, is.z + .9); m.lookAt(is.x, 1.55, is.z + 2.3); world.add(m);
+    return m;
+  });
+}
+function buildXR() {
+  if (xrBuilt) return; xrBuilt = true;
+  vrNav = new THREE.Group(); dolly.add(vrNav);
+  [['‹  Prev', -1, -.2], ['Next  ›', 1, .2]].forEach(([label, dir, x]) => {
+    const b = new THREE.Mesh(new RoundedBoxGeometry(.2, .08, .03, 3, .012), new THREE.MeshStandardMaterial({ color:0x8b6cff, roughness:.4, emissive:0x3ee6f5, emissiveIntensity:0 }));
+    b.position.set(x * .8, 1.02, -.38); b.rotation.x = -.5; b.userData.dir = dir; navButtons.push(b);
+    const lbl = new THREE.Mesh(new THREE.PlaneGeometry(.18, .06), new THREE.MeshBasicMaterial({ transparent:true,
+      map:canvasTex(384, 128, (c, W, H) => { c.fillStyle = '#fff'; c.font = '600 54px "Instrument Sans", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, W / 2, H / 2 + 2); }) }));
+    lbl.position.z = .017; b.add(lbl); vrNav.add(b);
+  });
+  const tipLbl = new THREE.Mesh(new THREE.PlaneGeometry(.34, .042), new THREE.MeshBasicMaterial({ transparent:true, map:canvasTex(768, 96, (c, W, H) => {
+    c.fillStyle = 'rgba(20,13,40,.82)'; c.beginPath(); c.roundRect(0, 0, W, H, 48); c.fill();
+    c.fillStyle = '#c9f1ff'; c.font = '500 32px "JetBrains Mono", monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('poke · pinch to grab · palm up = menu', W / 2, H / 2 + 2); }) }));
+  tipLbl.position.set(0, .955, -.345); tipLbl.rotation.x = -.5; vrNav.add(tipLbl);
+  buildPalmMenu();
+  const handFactory = new XRHandModelFactory(), ctrlFactory = new XRControllerModelFactory();
+  for (let i = 0; i < 2; i++) {
+    const c = renderer.xr.getController(i);
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({ color:0x3ee6f5, transparent:true, opacity:.8 }));
+    line.scale.z = 4; c.add(line); c.userData.line = line;
+    c.addEventListener('selectstart', () => onXRSelect(c, i));
+    dolly.add(c); controllers.push(c);
+    const hand = renderer.xr.getHand(i); if (HAND_MODEL !== 'none') hand.add(handFactory.createHandModel(hand, HAND_MODEL)); dolly.add(hand);
+    const grip = renderer.xr.getControllerGrip(i); grip.add(ctrlFactory.createControllerModel(grip)); dolly.add(grip);
+    grip.addEventListener('squeezestart', () => {
+      const gp = grip.getWorldPosition(new THREE.Vector3()), k = dolly.scale.x;
+      if (!ballS.held && ball.position.distanceTo(gp) < BALL_R + .08 * k) { grabBall(grip); grip.userData.ball = true; return; }
+      const o = nearestObject(gp, .1 * k); if (o) { grab(o, grip); grip.userData.held = o; }
+    });
+    grip.addEventListener('squeezeend', () => {
+      if (grip.userData.ball) { throwBall(); grip.userData.ball = false; }
+      if (grip.userData.held) { release(grip.userData.held); grip.userData.held = null; }
+    });
+    const point = new THREE.Object3D(); scene.add(point);
+    const H = { hand, point, pinch:false, heldObj:null, heldBall:false, lastBtn:null, lastTouch:null, handedness:i ? 'right' : 'left' };
+    hand.addEventListener('connected', e => { if (e.data && e.data.handedness) H.handedness = e.data.handedness; });
+    handsState.push(H);
+  }
+}
+const controllers = [];
+const rotM = new THREE.Matrix4();
+function vrRay(c) { rotM.identity().extractRotation(c.matrixWorld); raycaster.ray.origin.setFromMatrixPosition(c.matrixWorld); raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotM); return raycaster; }
+function navHit(rc) { return vrNav && vrNav.visible ? rc.intersectObjects(navButtons, false)[0] : null; }
+function onXRSelect(c, i) {
+  const H = handsState[i], tip = H && H.hand.joints['index-finger-tip'];
+  if (tip && tip.visible) {                // close-range pinch = grab, not a ray click
+    tip.getWorldPosition(tipW);
+    if (nearestObject(tipW, .08 * dolly.scale.x) || ball.position.distanceTo(tipW) < BALL_R + .08 * dolly.scale.x) return;
+  }
+  const rc = vrRay(c);
+  const nav = navHit(rc);
+  if (nav) return vrGo(vrIndex + nav.object.userData.dir);
+  if (xrMode === 'ar') { if (reticle.visible) { arHit = arCand.clone(); placeAR(); showArHint(''); } return; }
+  const hit = pick(rc);
+  if (!hit) return;
+  if (hit.userData.island !== vrIndex) vrGo(hit.userData.island); else hit.userData.spinV = 7;
+}
+function placeDolly(i) { const is = islands[i]; dolly.position.set(is.x, 0, is.z + 2.3); }
+
+// AR: instead of shrinking the islands (which would break light falloff), make the viewer a giant.
+// The rig is scaled by 1/AR_SCALE and positioned so the tapped surface lands just under the island.
+function placeAR() {
+  if (!arHit) return;
+  const k = 1 / AR_SCALE, is = islands[vrIndex];
+  const theta = -Math.atan2(camera.position.x - arHit.x, camera.position.z - arHit.z);   // island front faces the viewer
+  dolly.scale.setScalar(k); dolly.rotation.set(0, theta, 0);
+  const anchor = new THREE.Vector3(is.x, is.y - 1.5, is.z);
+  dolly.position.copy(anchor).sub(arHit.clone().multiplyScalar(k).applyAxisAngle(Y, theta));
+  world.visible = true;
+}
+function updateArUI() {
+  $('arIdx').textContent = `${String(vrIndex + 1).padStart(2, '0')} / ${String(N).padStart(2, '0')}`;
+  $('arTitle').textContent = SCENES[vrIndex].title;
+}
+function vrGo(i) {
+  i = Math.max(0, Math.min(N - 1, i));
+  if (i === vrIndex || pendingVR !== null) return;
+  if (xrMode === 'ar') { vrIndex = i; placeAR(); updateArUI(); return; }
+  pendingVR = i; fadeT = 1;
+}
+let stickCooldown = 0;
+arUI.addEventListener('beforexrselect', e => e.preventDefault());   // taps on the overlay don't place the island
+$('arPrev').addEventListener('click', () => vrGo(vrIndex - 1));
+$('arNext').addEventListener('click', () => vrGo(vrIndex + 1));
+$('arExit').addEventListener('click', () => renderer.xr.getSession()?.end());
+
+const FOG = scene.fog;
+renderer.xr.addEventListener('sessionstart', () => {
+  buildXR();
+  if (portal.on) stopPortal();
+  inVR = true; vrIndex = Math.round(p);
+  camera.position.set(0, 0, 0); camera.quaternion.identity();
+  const session = renderer.xr.getSession();
+  if (xrMode === 'ar') {
+    const phone = !!session.domOverlayState;
+    skyStuff.forEach(o => o.visible = false); scene.fog = null; renderer.setClearAlpha(0);
+    world.visible = false; arHit = null;
+    arUI.classList.add('on'); showArHint(phone ? 'Point at a table or the floor, then tap to place' : 'Look at a table, then pinch or trigger to place'); updateArUI();
+    $('arOcc').hidden = occ.mode !== 'cpu'; setOcclusion(occ.on);
+    const cam = phone && camAccessGranted(session) && 'XRWebGLBinding' in window;
+    $('arHands').hidden = !cam;
+    if (cam) try { camHands.binding = new XRWebGLBinding(session, renderer.getContext()); } catch { $('arHands').hidden = true; }
+    vrNav.visible = !phone; controllers.forEach(c => c.userData.line.visible = !phone);
+    session.requestReferenceSpace('viewer').then(vs => session.requestHitTestSource({ space:vs })).then(s => { hitSource = s; }).catch(() => {});
+  } else {
+    if (!vrPanels) buildPanels();
+    placeDolly(vrIndex);
+    vrPanels.forEach(m => m.visible = true); vrNav.visible = true; fade.visible = true;
+    controllers.forEach(c => c.userData.line.visible = true);
+  }
+});
+renderer.xr.addEventListener('sessionend', () => {
+  inVR = false; xrMode = null; hitSource = null; p = target = vrIndex;
+  stopCamHands();
+  occ.mode = null; occU.uDepthOn.value = 0; if (palm.menu) { palm.menu.visible = false; palm.handIdx = -1; palm.openT = 0; }
+  handsState.forEach(H => { H.heldBall = false; H.heldObj = null; }); held.clear(); spawnBall(vrIndex, true);
+  dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); dolly.scale.setScalar(1);
+  world.visible = true; skyStuff.forEach(o => o.visible = true); scene.fog = FOG; renderer.setClearAlpha(1);
+  vrPanels?.forEach(m => m.visible = false); if (vrNav) vrNav.visible = false; fade.visible = false; reticle.visible = false;
+  arUI.classList.remove('on');
+  onResize();
+});
+
+/* ------------------------------------------------------------------ resize + loop */
+function onResize() {
+  if (renderer.xr.isPresenting) return;
+  const a = innerWidth / innerHeight;
+  camera.aspect = a; camera.fov = a < 1 ? 50 + (1 - a) * 28 : 50; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (portal.on) buildPortalFrame();
+}
+addEventListener('resize', onResize); onResize();
+
+// One failing subsystem must not freeze the whole frame loop: log it once (with stack) and carry on
+const failed = {};
+function safe(name, fn) {
+  try { return fn(); }
+  catch (err) { if (!failed[name]) { failed[name] = true; console.error('[archipelago] ' + name + ' failed:', err && err.stack || err); } }
+}
+const clock = new THREE.Clock();
+let first = true, hovered = null;
+renderer.setAnimationLoop((time, frame) => {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime, now = performance.now();
+  flyU.t.value = t;
+
+  if (!inVR) {
+    if (!dragging && now - lastInput > 220) target += (Math.round(target) - target) * (1 - Math.exp(-dt * 6));
+    p += (target - p) * (1 - Math.exp(-dt * 4.5));
+    if (Math.abs(target - p) < .0005) p = target;
+    zoom += (zoomT - zoom) * (1 - Math.exp(-dt * 4));
+    mouse.sx += (mouse.x - mouse.sx) * (1 - Math.exp(-dt * 3)); mouse.sy += (mouse.y - mouse.sy) * (1 - Math.exp(-dt * 3));
+    if (portal.on) safe('portal', () => { updateFace(now); placePortalCamera(dt); }); else placeCamera();
+    raycaster.setFromCamera(mouse.ndc, camera);
+    hovered = pick(raycaster);
+    if (portal.on && portal.gaze) hovered = portal.gaze;
+    document.body.classList.toggle('hover-obj', !!hovered || raycaster.intersectObject(ball, false).length > 0);
+  } else {
+    hovered = null;
+    if (xrMode === 'ar' && hitSource) {
+      const frame = renderer.xr.getFrame();
+      const res = frame ? frame.getHitTestResults(hitSource) : [];
+      const pose = res.length ? res[0].getPose(renderer.xr.getReferenceSpace()) : null;
+      reticle.visible = !!pose;
+      if (pose) { reticle.matrix.fromArray(pose.transform.matrix); arCand.setFromMatrixPosition(reticle.matrix); }
+    }
+    if (occ.mode === 'cpu' && frame) updateCpuDepth(frame);
+    if (xrMode === 'ar' && frame) safe('camhands', () => updateCamHands(frame, now));
+    occU.uDepthOn.value = occ.mode === 'cpu' && occ.on && occU.uDepthTex.value ? 1 : 0;
+    if (occ.mode === 'gpu') { const dm = renderer.xr.getDepthSensingMesh(); if (dm) dm.visible = occ.on; }
+    for (const c of controllers) {
+      const rc = vrRay(c);
+      const nav = navHit(rc);
+      const obj = nav || xrMode === 'ar' ? null : pick(rc);
+      if (obj) hovered = obj;
+      c.userData.line.scale.z = nav ? nav.distance : 4;
+      navButtons.forEach(b => { if (nav && nav.object === b) b.material.emissiveIntensity = Math.max(b.material.emissiveIntensity, .6); });
+    }
+    navButtons.forEach(b => b.material.emissiveIntensity *= .9);
+    const nearHand = safe('hands', () => updateHands(now));
+    safe('palm', () => updatePalm(dt, now));
+    if (nearHand) hovered = nearHand;
+    const session = renderer.xr.getSession();
+    if (session && now > stickCooldown) for (const src of session.inputSources) {
+      const ax = src.gamepad && src.gamepad.axes.length >= 4 ? src.gamepad.axes[2] : 0;
+      if (Math.abs(ax) > .7) { vrGo(vrIndex + Math.sign(ax)); stickCooldown = now + 600; break; }
+    }
+    if (pendingVR !== null && fade.material.opacity > .97) { vrIndex = pendingVR; placeDolly(vrIndex); pendingVR = null; fadeT = 0; }
+    fade.material.opacity += (fadeT - fade.material.opacity) * (1 - Math.exp(-dt * 14));
+  }
+
+  const active = inVR ? vrIndex : Math.round(p);
+  if (active !== shown) showCard(active);
+  if (!ballS.held && active !== ballS.island && world.visible) spawnBall(active, true);
+  const focus = inVR && world.visible ? tmp.set(islands[vrIndex].x, 1, islands[vrIndex].z) : camTgt;
+  key.position.set(focus.x + 2.6, 6.5, focus.z + 4); key.target.position.set(focus.x, 1, focus.z);
+  if (portal.on) { key.position.x += portal.yawS * 5; key.position.y += portal.pitchS * 4; }   // looking around shifts the light a little
+
+  for (const o of hoverables) { o.position.copy(o.userData.p0); o.rotation.copy(o.userData.r0); }   // tickers rebuild the pose each frame
+  for (const f of tickers) f(t, dt);
+  for (const o of hoverables) {
+    const u = o.userData;
+    u.h += ((o === hovered ? 1 : 0) - u.h) * (1 - Math.exp(-dt * 10));
+    u.spinV = (u.spinV || 0) * Math.exp(-dt * 2.2); u.spin += u.spinV * dt;
+    o.scale.copy(u.s0).multiplyScalar(1 + .1 * u.h);
+    o.position.y = u.y0 + u.bob + .05 * u.h;
+  }
+
+  safe('held', () => applyHeld(dt));
+  if (world.visible) safe('ball', () => stepBall(dt, now));
+  renderer.render(scene, camera);
+  if (first) { first = false; $('loader').classList.add('gone'); }
+});
+</script>
+
+</html>
