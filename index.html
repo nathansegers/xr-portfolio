@@ -81,6 +81,14 @@ body.hover-obj #c{cursor:pointer}
 body.portal-on #portalHud{display:flex}
 body.portal-on .dots,body.portal-on .hint{display:none}
 body.portal-mouse #portalCam{display:none}
+#handVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}
+body.handcam-on.handcam-show #handVideo{display:block}
+#handOverlay{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;display:none}
+body.handcam-on #handOverlay{display:block}
+#handHud{position:absolute;right:24px;bottom:calc(64px + env(safe-area-inset-bottom,0px));display:none;flex-direction:column;align-items:flex-end;gap:8px}
+body.handcam-on #handHud{display:flex}
+body.handcam-on .dots,body.handcam-on .hint{display:none}
+#handStatus{font:500 11px/1.3 var(--mono);color:var(--ink);background:var(--glass);border:1px solid var(--edge);padding:6px 9px;border-radius:8px}
 #portalCam{width:128px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--edge);transform:scaleX(-1);background:#000}
 #portalStatus{font:500 11px/1.3 var(--mono);color:var(--ink);background:var(--glass);border:1px solid var(--edge);padding:6px 9px;border-radius:8px}
 #arUI{position:fixed;inset:0;display:none;pointer-events:none;color:var(--ink);font:15px/1.4 var(--body)}
@@ -103,7 +111,8 @@ body.portal-mouse #portalCam{display:none}
   #portalCam{width:96px;height:72px}
   .hint.used{opacity:0;transition:opacity .4s}
   .dots{right:14px;top:34%}
-  .xr-btns{right:16px;top:calc(14px + env(safe-area-inset-top,0px))}.vr{padding:10px 12px;font-size:13px}.vr:disabled{display:none}.vr-note{display:none}
+  .xr-btns{left:16px;right:16px;top:calc(50px + env(safe-area-inset-top,0px));justify-content:flex-end;flex-wrap:wrap}
+  #handHud{right:16px;bottom:calc(120px + env(safe-area-inset-bottom,0px))}.vr{padding:10px 12px;font-size:13px}.vr:disabled{display:none}.vr-note{display:none}
   .brand{font-size:16px;top:calc(24px + env(safe-area-inset-top,0px))}
   .hint .long{display:none}.hint .short{display:inline}
   .brand{left:16px}
@@ -111,10 +120,12 @@ body.portal-mouse #portalCam{display:none}
 }
 </style>
 
+<video id="handVideo" playsinline muted></video>
 <canvas id="c" tabindex="0" aria-label="3D portfolio scene"></canvas>
+<canvas id="handOverlay" aria-hidden="true"></canvas>
 <div class="ui">
   <div class="brand">Nathan Segers<span>.</span>xr<small>Spatial portfolio</small></div>
-  <div class="xr-btns"><button class="vr ghost" id="portalBtn">Portal</button><button class="vr ghost" id="ar" disabled>Checking AR…</button><button class="vr" id="vr" disabled>Checking VR…</button></div>
+  <div class="xr-btns"><button class="vr ghost" id="portalBtn">Portal</button><button class="vr ghost" id="handBtn">Hand cam</button><button class="vr ghost" id="ar" disabled>Checking AR…</button><button class="vr" id="vr" disabled>Checking VR…</button></div>
   <div class="vr-note" id="vrNote"></div>
   <nav class="dots" id="dots" aria-label="Scenes"></nav>
   <article class="card" id="card" aria-live="polite">
@@ -129,6 +140,7 @@ body.portal-mouse #portalCam{display:none}
       <div class="spec" id="spec"></div>
     </div>
   </article>
+  <div id="handHud"><div id="handStatus">Starting…</div><button class="vr ghost" id="handShow">Camera: shown</button><button class="vr ghost" id="handExit">Exit hand cam</button></div>
   <div id="portalHud"><video id="portalCam" playsinline muted></video><div id="portalStatus">Starting…</div><button class="vr ghost" id="portalExit">Exit portal</button></div>
   <div class="hint" id="hint"><span class="long">Scroll or swipe to travel · click an object to look closer · kick the ball</span><span class="short">Swipe to travel · tap to look closer</span></div>
 </div>
@@ -526,7 +538,7 @@ function throwBall() {
   const h = ballS.hist, a = h[0], z = h[h.length - 1];
   ballS.v.set(0, 0, 0);
   if (a && z && z.t > a.t) ballS.v.subVectors(z.p, a.p).multiplyScalar(1150 / (z.t - a.t));   // ≈ hand speed ×1.15
-  ballS.held = null; ballS.island = vrIndex; ballS.rest = 0;
+  ballS.held = null; ballS.island = inVR ? vrIndex : Math.round(p); ballS.rest = 0;
 }
 function stepBall(dt, now) {
   if (ballS.held) {
@@ -1041,6 +1053,7 @@ const gazeLight = new THREE.PointLight(0xffe2b8, 0, 3.5, 2);  // always in the s
 world.add(gazeLight);
 
 async function startPortal() {
+  if (handcam.on) stopHandCam();
   portalBtn.disabled = true; portalBtn.textContent = 'Starting camera…';
   try {
     portal.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
@@ -1256,6 +1269,149 @@ function stopCamHands() {
   $('arHands').textContent = 'Camera hands: off';
 }
 
+
+/* ------------------------------------------------------------------ hand cam: back camera + MediaPipe hands, no XR needed */
+const handcam = { on:false, show:true, stream:null, mirror:false, lastT:-1, lm:null, seen:0, pinch:false, held:false, depth:0, s0:1,
+  prev:null, kickCd:0, hover:null, proxy:new THREE.Object3D() };
+scene.add(handcam.proxy);
+const hcVideo = $('handVideo'), hcCanvas = $('handOverlay'), hcCtx = hcCanvas.getContext('2d'), hcBtn = $('handBtn'), hcStatus = $('handStatus');
+const HAND_LINKS = [[0, 1, 2, 3, 4], [0, 5, 6, 7, 8], [5, 9, 10, 11, 12], [9, 13, 14, 15, 16], [13, 17, 18, 19, 20], [0, 17]];
+if (!navigator.mediaDevices?.getUserMedia) hcBtn.hidden = true;
+hcBtn.addEventListener('click', () => handcam.on ? stopHandCam() : startHandCam());
+$('handExit').addEventListener('click', () => stopHandCam());
+$('handShow').addEventListener('click', () => setHandCamBackdrop(!handcam.show));
+
+async function startHandCam() {
+  if (portal.on) stopPortal();
+  hcBtn.disabled = true; hcBtn.textContent = 'Starting camera…';
+  try {
+    handcam.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
+    hcVideo.srcObject = handcam.stream; await hcVideo.play();
+    const fm = handcam.stream.getVideoTracks()[0].getSettings().facingMode;
+    handcam.mirror = fm ? fm === 'user' : !matchMedia('(pointer: coarse)').matches;   // laptops only have a user-facing webcam
+    hcVideo.style.transform = handcam.mirror ? 'scaleX(-1)' : '';
+    hcBtn.textContent = 'Loading hand model…';
+    if (!camHands.lm) camHands.lm = await createTask((await mediapipe()).mod.HandLandmarker,
+      { baseOptions:{ modelAssetPath:HAND_MODEL_URL }, runningMode:'VIDEO', numHands:1, minHandDetectionConfidence:.5, minTrackingConfidence:.5 });
+    handcam.on = true; handcam.lastT = -1; handcam.seen = 0;
+    document.body.classList.add('handcam-on'); setFolded(true, false); sizeHandOverlay();
+    setHandCamBackdrop(handcam.show);
+    hcStatus.textContent = 'Show your hand to the camera';
+  } catch (err) {
+    stopHandCam();
+    vrNote.textContent = 'Hand cam unavailable: ' + (err && err.message || err);
+  }
+  hcBtn.disabled = false; hcBtn.textContent = handcam.on ? 'Exit hand cam' : 'Hand cam';
+}
+function stopHandCam() {
+  if (handcam.held) throwBall();
+  handcam.stream?.getTracks().forEach(t => t.stop()); handcam.stream = null; hcVideo.srcObject = null;
+  handcam.on = false; handcam.held = false; handcam.hover = null;
+  document.body.classList.remove('handcam-on', 'handcam-show');
+  if (!inVR) { skyStuff.forEach(o => o.visible = true); scene.fog = FOG; renderer.setClearAlpha(1); }
+  hcCtx.clearRect(0, 0, hcCanvas.width, hcCanvas.height);
+  hcBtn.textContent = 'Hand cam';
+}
+function setHandCamBackdrop(show) {        // camera feed behind the islands, or the normal dusk sky
+  handcam.show = show;
+  document.body.classList.toggle('handcam-show', show);
+  skyStuff.forEach(o => o.visible = !show); scene.fog = show ? null : FOG; renderer.setClearAlpha(show ? 0 : 1);
+  $('handShow').textContent = show ? 'Camera: shown' : 'Camera: hidden';
+}
+function sizeHandOverlay() { const d = Math.min(devicePixelRatio, 2); hcCanvas.width = innerWidth * d; hcCanvas.height = innerHeight * d; hcCtx.setTransform(d, 0, 0, d, 0, 0); }
+addEventListener('resize', () => handcam.on && sizeHandOverlay());
+
+// landmark (normalised video coords) → CSS pixels, matching the video's object-fit: cover crop and mirroring
+function hcToScreen(l) {
+  const vw = hcVideo.videoWidth || 1, vh = hcVideo.videoHeight || 1, s = Math.max(innerWidth / vw, innerHeight / vh);
+  const dw = vw * s, dh = vh * s, x = handcam.mirror ? 1 - l.x : l.x;
+  return { x:x * dw - (dw - innerWidth) / 2, y:l.y * dh - (dh - innerHeight) / 2 };
+}
+const hcNdc = new THREE.Vector2(), hcDir = new THREE.Vector3(), hcBall = new THREE.Vector3(), hcTop = new THREE.Vector3();
+const toNdc = pt => hcNdc.set(pt.x / innerWidth * 2 - 1, -(pt.y / innerHeight) * 2 + 1);
+const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function ballOnScreen() {
+  hcBall.copy(ball.position).project(camera);
+  hcTop.copy(ball.position).addScaledVector(tmp.set(0, 1, 0).applyQuaternion(camera.quaternion), BALL_R).project(camera);
+  const x = (hcBall.x + 1) / 2 * innerWidth, y = (1 - hcBall.y) / 2 * innerHeight;
+  return { x, y, r:Math.max(14, Math.abs((1 - hcTop.y) / 2 * innerHeight - y)), behind:hcBall.z > 1 };
+}
+function updateHandCam(now, dt) {
+  if (hcVideo.readyState < 2) return;
+  if (hcVideo.currentTime !== handcam.lastT) {
+    handcam.lastT = hcVideo.currentTime;
+    handcam.lm = camHands.lm.detectForVideo(hcVideo, now).landmarks?.[0] || null;
+    if (handcam.lm) handcam.seen = now;
+  }
+  const lm = now - handcam.seen < 250 ? handcam.lm : null;
+  const bs = ballOnScreen();
+  if (!lm) {
+    if (handcam.held) { throwBall(); handcam.held = false; }
+    handcam.prev = null; handcam.hover = null; handcam.pinch = false;
+    drawHand(null, bs); hcStatus.textContent = 'Show your hand to the camera';
+    return;
+  }
+  const P = lm.map(hcToScreen);
+  const palmSize = Math.max(8, dist2(P[0], P[9]));
+  const ratio = dist2(P[4], P[8]) / palmSize;                                    // scale-free pinch measure
+  const pinching = handcam.pinch ? ratio < .55 : ratio < .32;
+  const pinchPt = { x:(P[4].x + P[8].x) / 2, y:(P[4].y + P[8].y) / 2 };
+  const palm = [0, 5, 9, 13, 17].reduce((a, i) => ({ x:a.x + P[i].x / 5, y:a.y + P[i].y / 5 }), { x:0, y:0 });
+
+  // index fingertip points at objects: highlight, and a pinch on one spins it
+  raycaster.setFromCamera(toNdc(P[8]), camera);
+  handcam.hover = pick(raycaster);
+
+  if (pinching && !handcam.pinch) {
+    if (!bs.behind && dist2(pinchPt, bs) < bs.r + 50) {                          // lift the ball
+      handcam.depth = camera.position.distanceTo(ball.position); handcam.s0 = palmSize;
+      handcam.proxy.position.copy(ball.position); grabBall(handcam.proxy); handcam.held = true;
+    } else if (handcam.hover) handcam.hover.userData.spinV = 7;
+  }
+  if (handcam.held) {
+    raycaster.setFromCamera(toNdc(pinchPt), camera);
+    const d = handcam.depth * THREE.MathUtils.clamp(handcam.s0 / palmSize, .55, 1.8);   // hand closer to the lens = ball comes toward you
+    handcam.proxy.position.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, d);
+    if (!pinching) { throwBall(); ballS.island = Math.round(p); handcam.held = false; }
+  }
+  handcam.pinch = pinching;
+
+  // kick: an open hand moving fast through the ball
+  if (!handcam.held && handcam.prev && now > handcam.kickCd && !bs.behind) {
+    const ms = Math.max(16, now - handcam.prev.t);
+    for (const [pt, was] of [[palm, handcam.prev.palm], [P[8], handcam.prev.tip], [P[12], handcam.prev.mid]]) {
+      const vx = (pt.x - was.x) / ms * 1000, vy = (pt.y - was.y) / ms * 1000, sp = Math.hypot(vx, vy);
+      if (sp > 650 && dist2(pt, bs) < bs.r + 40) {
+        const k = THREE.MathUtils.clamp(sp / innerHeight, .6, 5);                   // screen-heights per second
+        const right = tmp.set(1, 0, 0).applyQuaternion(camera.quaternion).clone(), up = hcTop.set(0, 1, 0).applyQuaternion(camera.quaternion).clone();
+        const fwd = camera.getWorldDirection(hcDir).clone();
+        ballS.v.copy(right.multiplyScalar(vx / sp * k * 1.6)).addScaledVector(up, -vy / sp * k * 1.6)
+          .addScaledVector(fwd, k * .9).add(tmp.set(0, 1.2 + k * .5, 0));
+        ballS.island = Math.round(p); ballS.rest = 0; handcam.kickCd = now + 450;
+        hcStatus.textContent = 'Kick!';
+        break;
+      }
+    }
+  }
+  handcam.prev = { t:now, palm, tip:P[8], mid:P[12] };
+  if (!/Kick/.test(hcStatus.textContent) || now > handcam.kickCd) hcStatus.textContent = handcam.held ? 'Holding — let go to throw' : 'Pinch the ball to lift · swipe to kick';
+  drawHand(P, bs, pinching, pinchPt);
+}
+function drawHand(P, bs, pinching, pinchPt) {
+  hcCtx.clearRect(0, 0, innerWidth, innerHeight);
+  if (!bs.behind) {                                                               // ring around the ball so you know where to reach
+    hcCtx.strokeStyle = handcam.held ? 'rgba(255,138,91,.95)' : 'rgba(62,230,245,.55)'; hcCtx.lineWidth = 2;
+    hcCtx.beginPath(); hcCtx.arc(bs.x, bs.y, bs.r + 10, 0, Math.PI * 2); hcCtx.stroke();
+  }
+  if (!P) return;
+  hcCtx.lineWidth = 3; hcCtx.lineCap = 'round'; hcCtx.strokeStyle = 'rgba(62,230,245,.85)';
+  for (const chain of HAND_LINKS) { hcCtx.beginPath(); chain.forEach((i, n) => n ? hcCtx.lineTo(P[i].x, P[i].y) : hcCtx.moveTo(P[i].x, P[i].y)); hcCtx.stroke(); }
+  hcCtx.fillStyle = '#f4efff';
+  P.forEach((q, i) => { hcCtx.beginPath(); hcCtx.arc(q.x, q.y, i % 4 === 0 ? 5 : 3.5, 0, Math.PI * 2); hcCtx.fill(); });
+  hcCtx.strokeStyle = pinching ? '#ff8a5b' : 'rgba(255,255,255,.6)'; hcCtx.lineWidth = pinching ? 4 : 2;
+  hcCtx.beginPath(); hcCtx.arc(pinchPt.x, pinchPt.y, pinching ? 12 : 9, 0, Math.PI * 2); hcCtx.stroke();
+}
+
 /* --- shared XR objects */
 const fade = new THREE.Mesh(new THREE.SphereGeometry(.3, 16, 12), new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide, transparent:true, opacity:0, depthTest:false }));
 fade.renderOrder = 999; fade.visible = false; camera.add(fade);
@@ -1376,6 +1532,7 @@ const FOG = scene.fog;
 renderer.xr.addEventListener('sessionstart', () => {
   buildXR();
   if (portal.on) stopPortal();
+  if (handcam.on) stopHandCam();
   inVR = true; vrIndex = Math.round(p);
   camera.position.set(0, 0, 0); camera.quaternion.identity();
   const session = renderer.xr.getSession();
@@ -1441,6 +1598,7 @@ renderer.setAnimationLoop((time, frame) => {
     raycaster.setFromCamera(mouse.ndc, camera);
     hovered = pick(raycaster);
     if (portal.on && portal.gaze) hovered = portal.gaze;
+    if (handcam.on) { safe('handcam', () => updateHandCam(now, dt)); if (handcam.hover) hovered = handcam.hover; }
     document.body.classList.toggle('hover-obj', !!hovered || raycaster.intersectObject(ball, false).length > 0);
   } else {
     hovered = null;
